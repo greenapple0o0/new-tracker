@@ -356,8 +356,20 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
     const playerKey = player === 1 ? 'player1Value' : 'player2Value';
     const scoreKey = player === 1 ? 'player1Score' : 'player2Score';
     
-    const newValue = Math.max(0, Math.min(task[playerKey] + change, task.maxValue));
-    const pointChange = newValue - task[playerKey];
+    // Special handling for water task - 500mL increments = 1 point
+    let pointChange = 0;
+    let newValue = task[playerKey];
+    
+    if (task.name === 'Water Drank (mL)') {
+      const incrementAmount = 500; // 500mL per click
+      const newTotalValue = Math.max(0, Math.min(task[playerKey] + (change * incrementAmount), task.maxValue));
+      pointChange = Math.floor((newTotalValue - task[playerKey]) / incrementAmount); // 1 point per 500mL
+      newValue = newTotalValue;
+    } else {
+      // For other tasks (study, workout), 1 unit = 1 point
+      newValue = Math.max(0, Math.min(task[playerKey] + change, task.maxValue));
+      pointChange = newValue - task[playerKey];
+    }
     
     task[playerKey] = newValue;
     scores[scoreKey] = Math.max(0, scores[scoreKey] + pointChange);

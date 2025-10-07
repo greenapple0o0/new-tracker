@@ -18,7 +18,7 @@ class CompetitiveTrack {
     async init() {
         this.setupLoginListeners();
         this.setupModalListeners();
-        this.setupControlListeners(); // Add this line
+        this.setupControlListeners();
     }
 
     setupLoginListeners() {
@@ -61,7 +61,6 @@ class CompetitiveTrack {
             maxValueContainer.style.display = e.target.value === 'checkbox' ? 'none' : 'block';
         });
 
-        // Add Enter key support in modal
         document.getElementById('newTaskName').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 this.saveNewTask();
@@ -75,9 +74,7 @@ class CompetitiveTrack {
         });
     }
 
-    // NEW METHOD: Setup control button listeners
     setupControlListeners() {
-        // This will be called after the app loads to set up the main control buttons
         document.addEventListener('click', (e) => {
             if (e.target.id === 'addTask' || e.target.closest('#addTask')) {
                 this.showTaskModal();
@@ -241,12 +238,20 @@ class CompetitiveTrack {
         }
 
         try {
+            const task = this.scores.dailyTasks[taskIndex];
+            let effectiveChange = change;
+            
+            // Special handling for water task - each click = 500mL
+            if (task.name === 'Water Drank (mL)') {
+                effectiveChange = change; // Server handles the 500mL conversion
+            }
+
             const response = await fetch(`${this.apiBase}/scores/task/${taskIndex}/increment`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ player, change })
+                body: JSON.stringify({ player, change: effectiveChange })
             });
             this.scores = await response.json();
             this.render();
@@ -258,7 +263,6 @@ class CompetitiveTrack {
     async deleteTask(taskIndex) {
         const task = this.scores.dailyTasks[taskIndex];
         
-        // Check if this is a default task
         if (this.isDefaultTask(task.name)) {
             alert('Default tasks cannot be deleted.');
             return;
@@ -278,7 +282,6 @@ class CompetitiveTrack {
         }
     }
 
-    // Check if a task is a default task
     isDefaultTask(taskName) {
         return this.defaultTasks.includes(taskName);
     }
@@ -332,16 +335,16 @@ class CompetitiveTrack {
             const canEditNish = this.currentUser === 'nish';
             const canEditJess = this.currentUser === 'jess';
             const isDefault = this.isDefaultTask(task.name);
+            const isWaterTask = task.name === 'Water Drank (mL)';
 
             let taskContent = '';
             
             if (task.type === 'checkbox') {
                 taskContent = this.renderCheckboxTask(task, index, canEditNish, canEditJess);
             } else {
-                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess);
+                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask);
             }
             
-            // Only show delete button for non-default tasks
             const deleteButton = isDefault ? '' : `
                 <div style="text-align: center; margin-top: 15px;">
                     <button onclick="tracker.deleteTask(${index})" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px;">
@@ -374,7 +377,6 @@ class CompetitiveTrack {
         `;
         container.appendChild(addTaskEl);
 
-        // Add event listener to the new button
         document.getElementById('addTaskBtn').addEventListener('click', () => {
             this.showTaskModal();
         });
@@ -408,11 +410,16 @@ class CompetitiveTrack {
         `;
     }
 
-    renderNumberTask(task, index, canEditNish, canEditJess) {
+    renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask) {
         const nishValue = task.player1Value;
         const jessValue = task.player2Value;
         const nishPercent = (nishValue / task.maxValue) * 100;
         const jessPercent = (jessValue / task.maxValue) * 100;
+
+        // For water task, show mL and indicate 500mL increments
+        const valueSuffix = isWaterTask ? 'mL' : '';
+        const maxLabel = isWaterTask ? `max: ${task.maxValue}mL` : `max: ${task.maxValue}`;
+        const incrementInfo = isWaterTask ? '<div style="font-size: 0.8em; color: #666; margin-top: 5px;">+500mL = 1 point</div>' : '';
 
         return `
             <div class="task-controls">
@@ -423,13 +430,14 @@ class CompetitiveTrack {
                                 onclick="${canEditNish && nishValue > 0 ? `tracker.updateNumberTask(${index}, 1, -1)` : ''}">
                             <i class="fas fa-minus"></i>
                         </button>
-                        <div class="number-value">${nishValue}</div>
+                        <div class="number-value">${nishValue}${valueSuffix}</div>
                         <button class="number-btn ${!canEditNish || nishValue >= task.maxValue ? 'disabled' : ''}" 
                                 onclick="${canEditNish && nishValue < task.maxValue ? `tracker.updateNumberTask(${index}, 1, 1)` : ''}">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
-                    <div class="number-max">max: ${task.maxValue}</div>
+                    <div class="number-max">${maxLabel}</div>
+                    ${incrementInfo}
                     <div class="progress-container">
                         <div class="progress-bar">
                             <div class="progress-fill nish" style="width: ${nishPercent}%"></div>
@@ -443,13 +451,14 @@ class CompetitiveTrack {
                                 onclick="${canEditJess && jessValue > 0 ? `tracker.updateNumberTask(${index}, 2, -1)` : ''}">
                             <i class="fas fa-minus"></i>
                         </button>
-                        <div class="number-value">${jessValue}</div>
+                        <div class="number-value">${jessValue}${valueSuffix}</div>
                         <button class="number-btn ${!canEditJess || jessValue >= task.maxValue ? 'disabled' : ''}" 
                                 onclick="${canEditJess && jessValue < task.maxValue ? `tracker.updateNumberTask(${index}, 2, 1)` : ''}">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
-                    <div class="number-max">max: ${task.maxValue}</div>
+                    <div class="number-max">${maxLabel}</div>
+                    ${incrementInfo}
                     <div class="progress-container">
                         <div class="progress-bar">
                             <div class="progress-fill jess" style="width: ${jessPercent}%"></div>
