@@ -2,12 +2,16 @@
   "name": "couple-tracker",
   "version": "1.0.0",
   "description": "Competitive tracker for couples",
+  "main": "server/index.js",
   "scripts": {
-    "start": "cd server && npm start",
-    "build": "cd server && npm install",
-    "install-server": "cd server && npm install",
-    "install-client": "cd client && npm install",
-    "heroku-postbuild": "npm run install-client && npm run install-server"
+    "start": "node server/index.js",
+    "build": "npm install"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.5.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
   },
   "engines": {
     "node": "18.x"
