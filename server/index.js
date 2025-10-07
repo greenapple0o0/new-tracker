@@ -326,6 +326,7 @@ app.post('/api/scores/task/:taskIndex/toggle', async (req, res) => {
 });
 
 // Increment/decrement value tasks
+// In server/index.js - Fix the increment endpoint
 app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
   try {
     const { taskIndex } = req.params;
@@ -356,26 +357,54 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
     const playerKey = player === 1 ? 'player1Value' : 'player2Value';
     const scoreKey = player === 1 ? 'player1Score' : 'player2Score';
     
-    // Special handling for water task - 500mL increments = 1 point
     let pointChange = 0;
     let newValue = task[playerKey];
     
     if (task.name === 'Water Drank (mL)') {
       const incrementAmount = 500; // 500mL per click
-      const newTotalValue = Math.max(0, Math.min(task[playerKey] + (change * incrementAmount), task.maxValue));
-      pointChange = Math.floor((newTotalValue - task[playerKey]) / incrementAmount); // 1 point per 500mL
-      newValue = newTotalValue;
+      
+      if (change > 0) {
+        // Increment - add 500mL and 1 point
+        const potentialNewValue = task[playerKey] + incrementAmount;
+        if (potentialNewValue <= task.maxValue) {
+          newValue = potentialNewValue;
+          pointChange = 1; // 1 point per 500mL
+        }
+      } else if (change < 0) {
+        // Decrement - subtract 500mL and 1 point
+        const potentialNewValue = task[playerKey] - incrementAmount;
+        if (potentialNewValue >= 0) {
+          newValue = potentialNewValue;
+          pointChange = -1; // Remove 1 point per 500mL
+        }
+      }
     } else {
       // For other tasks (study, workout), 1 unit = 1 point
-      newValue = Math.max(0, Math.min(task[playerKey] + change, task.maxValue));
-      pointChange = newValue - task[playerKey];
+      if (change > 0) {
+        // Increment
+        const potentialNewValue = task[playerKey] + 1;
+        if (potentialNewValue <= task.maxValue) {
+          newValue = potentialNewValue;
+          pointChange = 1;
+        }
+      } else if (change < 0) {
+        // Decrement
+        const potentialNewValue = task[playerKey] - 1;
+        if (potentialNewValue >= 0) {
+          newValue = potentialNewValue;
+          pointChange = -1;
+        }
+      }
     }
     
-    task[playerKey] = newValue;
-    scores[scoreKey] = Math.max(0, scores[scoreKey] + pointChange);
-    
-    scores.lastUpdated = new Date();
-    await scores.save();
+    // Only update if there's an actual change
+    if (pointChange !== 0) {
+      task[playerKey] = newValue;
+      scores[scoreKey] = Math.max(0, scores[scoreKey] + pointChange);
+      
+      scores.lastUpdated = new Date();
+      await scores.save();
+    }
     
     const now = new Date();
     const timeUntilReset = scores.nextReset - now;
@@ -388,7 +417,6 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 // Add custom task
 app.post('/api/scores/task', async (req, res) => {
   try {
