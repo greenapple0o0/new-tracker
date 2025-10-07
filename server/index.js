@@ -274,10 +274,12 @@ app.post('/api/scores/task/:taskIndex/update', async (req, res) => {
 });
 
 // Toggle checkbox task
-app.post('/api/scores/task/:taskIndex/toggle', async (req, res) => {
+// Add these new endpoints to server/index.js
+
+// Custom water input endpoint
+app.post('/api/scores/task/water/update', async (req, res) => {
   try {
-    const { taskIndex } = req.params;
-    const { player } = req.body;
+    const { player, amount } = req.body; // amount in mL
     
     if (![1, 2].includes(player)) {
       return res.status(400).json({ error: 'Invalid player. Use 1 for Nish or 2 for Jess' });
@@ -291,23 +293,23 @@ app.post('/api/scores/task/:taskIndex/toggle', async (req, res) => {
     scores = await ensureDefaultTasks(scores);
     scores = await checkAndResetScores(scores);
     
-    const index = parseInt(taskIndex);
-    if (index < 0 || index >= scores.dailyTasks.length) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
-    
-    const task = scores.dailyTasks[index];
-    if (task.type !== 'checkbox') {
-      return res.status(400).json({ error: 'This task is not a checkbox type' });
+    const waterTask = scores.dailyTasks.find(task => task.name === 'Water Drank (mL)');
+    if (!waterTask) {
+      return res.status(404).json({ error: 'Water task not found' });
     }
     
     const playerKey = player === 1 ? 'player1Value' : 'player2Value';
     const scoreKey = player === 1 ? 'player1Score' : 'player2Score';
     
-    const newValue = task[playerKey] === 0 ? 1 : 0;
-    const pointChange = newValue - task[playerKey];
+    const oldValue = waterTask[playerKey];
+    const newValue = Math.max(0, Math.min(amount, waterTask.maxValue));
     
-    task[playerKey] = newValue;
+    // Calculate points: 750mL = 1 point
+    const oldPoints = Math.floor(oldValue / 750);
+    const newPoints = Math.floor(newValue / 750);
+    const pointChange = newPoints - oldPoints;
+    
+    waterTask[playerKey] = newValue;
     scores[scoreKey] = Math.max(0, scores[scoreKey] + pointChange);
     
     scores.lastUpdated = new Date();
@@ -325,12 +327,10 @@ app.post('/api/scores/task/:taskIndex/toggle', async (req, res) => {
   }
 });
 
-// Increment/decrement value tasks
-// In server/index.js - Fix the increment endpoint
-app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
+// Custom workout input endpoint
+app.post('/api/scores/task/workout/update', async (req, res) => {
   try {
-    const { taskIndex } = req.params;
-    const { player, change } = req.body;
+    const { player, minutes } = req.body; // minutes of workout
     
     if (![1, 2].includes(player)) {
       return res.status(400).json({ error: 'Invalid player. Use 1 for Nish or 2 for Jess' });
@@ -344,67 +344,29 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
     scores = await ensureDefaultTasks(scores);
     scores = await checkAndResetScores(scores);
     
-    const index = parseInt(taskIndex);
-    if (index < 0 || index >= scores.dailyTasks.length) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
-    
-    const task = scores.dailyTasks[index];
-    if (task.type === 'checkbox') {
-      return res.status(400).json({ error: 'Use toggle for checkbox tasks' });
+    const workoutTask = scores.dailyTasks.find(task => task.name === 'Workout Done (hours)');
+    if (!workoutTask) {
+      return res.status(404).json({ error: 'Workout task not found' });
     }
     
     const playerKey = player === 1 ? 'player1Value' : 'player2Value';
     const scoreKey = player === 1 ? 'player1Score' : 'player2Score';
     
-    let pointChange = 0;
-    let newValue = task[playerKey];
+    // Convert minutes to hours for storage
+    const hours = minutes / 60;
+    const oldValue = workoutTask[playerKey];
+    const newValue = Math.max(0, Math.min(hours, workoutTask.maxValue));
     
-    if (task.name === 'Water Drank (mL)') {
-      const incrementAmount = 750; // 500mL per click
-      
-      if (change > 0) {
-        // Increment - add 500mL and 1 point
-        const potentialNewValue = task[playerKey] + incrementAmount;
-        if (potentialNewValue <= task.maxValue) {
-          newValue = potentialNewValue;
-          pointChange = 1; // 1 point per 500mL
-        }
-      } else if (change < 0) {
-        // Decrement - subtract 500mL and 1 point
-        const potentialNewValue = task[playerKey] - incrementAmount;
-        if (potentialNewValue >= 0) {
-          newValue = potentialNewValue;
-          pointChange = -1; // Remove 1 point per 500mL
-        }
-      }
-    } else {
-      // For other tasks (study, workout), 1 unit = 1 point
-      if (change > 0) {
-        // Increment
-        const potentialNewValue = task[playerKey] + 1;
-        if (potentialNewValue <= task.maxValue) {
-          newValue = potentialNewValue;
-          pointChange = 1;
-        }
-      } else if (change < 0) {
-        // Decrement
-        const potentialNewValue = task[playerKey] - 1;
-        if (potentialNewValue >= 0) {
-          newValue = potentialNewValue;
-          pointChange = -1;
-        }
-      }
-    }
+    // Calculate points: 30 minutes = 1 point
+    const oldPoints = Math.floor(oldValue * 60 / 30); // Convert hours to minutes, then calculate points
+    const newPoints = Math.floor(minutes / 30);
+    const pointChange = newPoints - oldPoints;
     
-    // Only update if there's an actual change
-    if (pointChange !== 0) {
-      task[playerKey] = newValue;
-      scores[scoreKey] = Math.max(0, scores[scoreKey] + pointChange);
-      
-      scores.lastUpdated = new Date();
-      await scores.save();
-    }
+    workoutTask[playerKey] = newValue;
+    scores[scoreKey] = Math.max(0, scores[scoreKey] + pointChange);
+    
+    scores.lastUpdated = new Date();
+    await scores.save();
     
     const now = new Date();
     const timeUntilReset = scores.nextReset - now;
