@@ -5,12 +5,6 @@ class CompetitiveTrack {
         this.currentUser = null;
         this.countdownInterval = null;
         
-        this.defaultTasks = [
-            'Water Drank (mL)',
-            'Studied (hours)', 
-            'Workout Done (hours)'
-        ];
-        
         this.init();
     }
 
@@ -106,8 +100,6 @@ class CompetitiveTrack {
                 this.saveWorkoutIncrement();
             }
         });
-
-        // Study modal - REMOVED since we're using +/- buttons for study
 
         // Rename modal
         const renameModal = document.getElementById('renameModal');
@@ -297,9 +289,7 @@ class CompetitiveTrack {
     }
 
     getCurrentWater(player) {
-        const waterTask = this.scores.dailyTasks.find(task => 
-            task.name === 'Water Drank (mL)' || task.type === 'water'
-        );
+        const waterTask = this.scores.dailyTasks.find(task => task.type === 'water');
         if (!waterTask) return 0;
         return Math.round(player === 1 ? waterTask.player1Value : waterTask.player2Value);
     }
@@ -359,9 +349,7 @@ class CompetitiveTrack {
     }
 
     getCurrentWorkout(player) {
-        const workoutTask = this.scores.dailyTasks.find(task => 
-            task.name === 'Workout Done (hours)' || task.type === 'workout'
-        );
+        const workoutTask = this.scores.dailyTasks.find(task => task.type === 'workout');
         if (!workoutTask) return '0 hours';
         const value = player === 1 ? workoutTask.player1Value : workoutTask.player2Value;
         return `${value.toFixed(1)} hours`;
@@ -489,7 +477,8 @@ class CompetitiveTrack {
         const task = this.scores.dailyTasks[taskIndex];
         
         // Check if this is a default task
-        if (this.isDefaultTask(task.name)) {
+        const defaultTasks = ['Water Drank (mL)', 'Studied (hours)', 'Workout Done (hours)'];
+        if (defaultTasks.includes(task.name)) {
             alert('Default tasks cannot be deleted.');
             return;
         }
@@ -506,11 +495,6 @@ class CompetitiveTrack {
                 alert('Error deleting task: ' + error.message);
             }
         }
-    }
-
-    // Check if a task is a default task
-    isDefaultTask(taskName) {
-        return this.defaultTasks.includes(taskName);
     }
 
     render() {
@@ -561,10 +545,10 @@ class CompetitiveTrack {
             
             const canEditNish = this.currentUser === 'nish';
             const canEditJess = this.currentUser === 'jess';
-            const isDefault = this.isDefaultTask(task.name);
-            const isWaterTask = task.name === 'Water Drank (mL)' || task.type === 'water';
-            const isWorkoutTask = task.name === 'Workout Done (hours)' || task.type === 'workout';
-            const isStudyTask = task.name === 'Studied (hours)' || task.type === 'study';
+            const isDefault = ['Water Drank (mL)', 'Studied (hours)', 'Workout Done (hours)'].includes(task.name);
+            const isWaterTask = task.type === 'water';
+            const isWorkoutTask = task.type === 'workout';
+            const isStudyTask = task.type === 'study';
 
             let taskContent = '';
             
@@ -731,7 +715,7 @@ class CompetitiveTrack {
         let valueSuffix = '';
         let maxLabel = `max: ${task.maxValue}`;
 
-        if (task.name === 'Studied (hours)' || task.type === 'study') {
+        if (task.type === 'study') {
             valueSuffix = ' hours';
             maxLabel = `max: ${task.maxValue} hours`;
         }
