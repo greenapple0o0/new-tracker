@@ -3,38 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Couple Competition Tracker</title>
+    <title>Competitive Track</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>❤️ Couple Competition Tracker ❤️</h1>
-            <div class="score-header">
-                <div class="player player1">
-                    <input type="text" id="player1Name" value="You" class="player-name">
-                    <div class="score" id="player1Score">0</div>
+    <!-- Login Page -->
+    <div id="loginPage" class="login-container">
+        <div class="login-box">
+            <div class="app-logo">
+                <i class="fas fa-trophy"></i>
+                <h1>Competitive Track</h1>
+            </div>
+            <p class="login-subtitle">Select your profile to continue</p>
+            
+            <div class="user-options">
+                <div class="user-option" data-user="nish">
+                    <div class="user-avatar nish">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <h3>Nish</h3>
                 </div>
-                <div class="vs">VS</div>
-                <div class="player player2">
-                    <input type="text" id="player2Name" value="Girlfriend" class="player-name">
-                    <div class="score" id="player2Score">0</div>
+                
+                <div class="user-option" data-user="jess">
+                    <div class="user-avatar jess">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <h3>Jess</h3>
+                </div>
+            </div>
+
+            <button id="startGame" class="btn btn-primary start-btn">
+                <i class="fas fa-play"></i> Enter Competition
+            </button>
+        </div>
+    </div>
+
+    <!-- Main App (Hidden until login) -->
+    <div id="app" class="container" style="display: none;">
+        <header>
+            <div class="header-top">
+                <div class="app-title">
+                    <i class="fas fa-trophy"></i>
+                    <h1>Competitive Track</h1>
+                </div>
+                <div class="user-info">
+                    <span class="welcome-text">Welcome, <strong id="currentUser">Nish</strong></span>
+                    <button id="logoutBtn" class="btn btn-outline">
+                        <i class="fas fa-sync-alt"></i> Switch User
+                    </button>
+                </div>
+            </div>
+            
+            <div class="score-header">
+                <div class="player nish-player">
+                    <div class="player-info">
+                        <div class="player-avatar nish">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="player-details">
+                            <div class="player-name">Nish</div>
+                            <div class="score" id="nishScore">0</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="vs-container">
+                    <div class="vs-line"></div>
+                    <div class="vs">VS</div>
+                    <div class="vs-line"></div>
+                </div>
+                
+                <div class="player jess-player">
+                    <div class="player-info">
+                        <div class="player-avatar jess">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="player-details">
+                            <div class="player-name">Jess</div>
+                            <div class="score" id="jessScore">0</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </header>
 
         <div class="controls">
             <button id="addCategory" class="btn btn-primary">
-                <i class="fas fa-plus"></i> Add Category
+                <i class="fas fa-plus"></i> Add Task
             </button>
-            <button id="resetScores" class="btn btn-danger">
+            <button id="resetScores" class="btn btn-outline">
                 <i class="fas fa-redo"></i> Reset All
             </button>
         </div>
 
-        <div class="categories" id="categoriesContainer">
-            <!-- Categories will be added here dynamically -->
+        <div class="tasks-container" id="tasksContainer">
+            <!-- Tasks will be added here dynamically -->
         </div>
 
         <div class="winner-section" id="winnerSection">
@@ -42,13 +106,14 @@
         </div>
     </div>
 
-    <!-- Add Category Modal -->
-    <div id="categoryModal" class="modal">
+    <!-- Add Task Modal -->
+    <div id="taskModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h3>Add New Category</h3>
-            <input type="text" id="newCategoryName" placeholder="Enter category name">
-            <button id="saveCategory" class="btn btn-primary">Save Category</button>
+            <h3>Add New Task</h3>
+            <input type="text" id="newTaskName" placeholder="Enter task description">
+            <input type="number" id="newTaskPoints" placeholder="Points value" value="1" min="1" max="10">
+            <button id="saveTask" class="btn btn-primary">Save Task</button>
         </div>
     </div>
 
