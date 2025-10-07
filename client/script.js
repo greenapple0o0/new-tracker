@@ -4,6 +4,18 @@ class CompetitiveTrack {
         this.scores = null;
         this.currentUser = null;
         this.countdownInterval = null;
+        
+        // Define default tasks that cannot be deleted
+        this.defaultTasks = [
+            'Water Drank (cups)',
+            'Studied (hours)', 
+            'Workout Done (hours)',
+            'Morning Routine',
+            'Healthy Eating',
+            'No Sugar',
+            'Meditation'
+        ];
+        
         this.init();
     }
 
@@ -127,7 +139,6 @@ class CompetitiveTrack {
                 this.updateCountdownDisplay();
                 
                 if (this.scores.timeUntilReset <= 0) {
-                    // Reset occurred, reload scores
                     this.loadScores().then(() => this.render());
                 }
             }
@@ -183,7 +194,7 @@ class CompetitiveTrack {
 
     async toggleCheckbox(taskIndex, player) {
         if (this.currentUser !== (player === 1 ? 'nish' : 'jess')) {
-            return; // Prevent other user from toggling
+            return;
         }
 
         try {
@@ -203,7 +214,7 @@ class CompetitiveTrack {
 
     async updateNumberTask(taskIndex, player, change) {
         if (this.currentUser !== (player === 1 ? 'nish' : 'jess')) {
-            return; // Prevent other user from modifying
+            return;
         }
 
         try {
@@ -222,6 +233,14 @@ class CompetitiveTrack {
     }
 
     async deleteTask(taskIndex) {
+        const task = this.scores.dailyTasks[taskIndex];
+        
+        // Check if this is a default task
+        if (this.isDefaultTask(task.name)) {
+            alert('Default tasks cannot be deleted.');
+            return;
+        }
+
         if (confirm('Are you sure you want to delete this task?')) {
             try {
                 const response = await fetch(`${this.apiBase}/scores/task/${taskIndex}`, {
@@ -231,21 +250,23 @@ class CompetitiveTrack {
                 this.render();
             } catch (error) {
                 console.error('Error deleting task:', error);
+                alert('Error deleting task: ' + error.message);
             }
         }
+    }
+
+    // Check if a task is a default task
+    isDefaultTask(taskName) {
+        return this.defaultTasks.includes(taskName);
     }
 
     render() {
         if (!this.scores) return;
 
-        // Update scores
         document.getElementById('nishScore').textContent = this.scores.player1Score;
         document.getElementById('jessScore').textContent = this.scores.player2Score;
 
-        // Render calendar
         this.renderCalendar();
-
-        // Render tasks
         this.renderTasks();
     }
 
@@ -253,7 +274,6 @@ class CompetitiveTrack {
         const calendarElement = document.getElementById('calendar');
         calendarElement.innerHTML = '';
 
-        // Show last 7 days of history
         for (let i = 0; i < 7; i++) {
             const dayElement = document.createElement('div');
             dayElement.className = 'calendar-day empty';
@@ -288,6 +308,7 @@ class CompetitiveTrack {
             
             const canEditNish = this.currentUser === 'nish';
             const canEditJess = this.currentUser === 'jess';
+            const isDefault = this.isDefaultTask(task.name);
 
             let taskContent = '';
             
@@ -297,17 +318,22 @@ class CompetitiveTrack {
                 taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess);
             }
             
-            taskEl.innerHTML = `
-                <div class="task-header">
-                    <div class="task-name">${task.name}</div>
-                    <div class="task-type">${task.type}</div>
-                </div>
-                ${taskContent}
+            // Only show delete button for non-default tasks
+            const deleteButton = isDefault ? '' : `
                 <div style="text-align: center; margin-top: 15px;">
                     <button onclick="tracker.deleteTask(${index})" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px;">
                         <i class="fas fa-trash"></i> Delete
                     </button>
                 </div>
+            `;
+
+            taskEl.innerHTML = `
+                <div class="task-header">
+                    <div class="task-name">${task.name} ${isDefault ? '<span style="font-size: 0.7em; color: #666;">(Default)</span>' : ''}</div>
+                    <div class="task-type">${task.type}</div>
+                </div>
+                ${taskContent}
+                ${deleteButton}
             `;
             container.appendChild(taskEl);
         });
