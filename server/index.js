@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -10,11 +11,24 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from the client directory
+app.use(express.static(path.join(__dirname, '../client')));
+
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/couple-tracker';
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  console.error('❌ MONGODB_URI is not defined in environment variables');
+  process.exit(1);
+}
+
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+})
+.then(() => console.log('✅ Connected to MongoDB'))
+.catch(err => {
+  console.error('❌ MongoDB connection error:', err);
+  process.exit(1);
 });
 
 // Score Schema
@@ -33,7 +47,7 @@ const scoreSchema = new mongoose.Schema({
 
 const Score = mongoose.model('Score', scoreSchema);
 
-// Routes
+// API Routes
 app.get('/api/scores', async (req, res) => {
   try {
     let scores = await Score.findOne();
@@ -96,6 +110,12 @@ app.post('/api/scores/category', async (req, res) => {
   }
 });
 
+// ✅ ADD THIS - Serve the frontend for all other routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/index.html'));
+});
+
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📁 Serving frontend from: ${path.join(__dirname, '../client')}`);
 });
