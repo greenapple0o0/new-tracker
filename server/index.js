@@ -361,7 +361,7 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
     let newValue = task[playerKey];
     
     if (task.name === 'Water Drank (mL)') {
-      const incrementAmount = 500; // 500mL per click
+      const incrementAmount = 750; // 500mL per click
       
       if (change > 0) {
         // Increment - add 500mL and 1 point
