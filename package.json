@@ -1,0 +1,15 @@
+{
+  "name": "couple-tracker",
+  "version": "1.0.0",
+  "description": "Competitive tracker for couples",
+  "scripts": {
+    "start": "cd server && npm start",
+    "build": "cd server && npm install",
+    "install-server": "cd server && npm install",
+    "install-client": "cd client && npm install",
+    "heroku-postbuild": "npm run install-client && npm run install-server"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Couple Competition Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>❤️ Couple Competition Tracker ❤️</h1>
+            <div class="score-header">
+                <div class="player player1">
+                    <input type="text" id="player1Name" value="You" class="player-name">
+                    <div class="score" id="player1Score">0</div>
+                </div>
+                <div class="vs">VS</div>
+                <div class="player player2">
+                    <input type="text" id="player2Name" value="Girlfriend" class="player-name">
+                    <div class="score" id="player2Score">0</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="controls">
+            <button id="addCategory" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Category
+            </button>
+            <button id="resetScores" class="btn btn-danger">
+                <i class="fas fa-redo"></i> Reset All
+            </button>
+        </div>
+
+        <div class="categories" id="categoriesContainer">
+            <!-- Categories will be added here dynamically -->
+        </div>
+
+        <div class="winner-section" id="winnerSection">
+            <h2 id="winnerText"></h2>
+        </div>
+    </div>
+
+    <!-- Add Category Modal -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Add New Category</h3>
+            <input type="text" id="newCategoryName" placeholder="Enter category name">
+            <button id="saveCategory" class="btn btn-primary">Save Category</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
