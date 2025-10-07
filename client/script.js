@@ -7,13 +7,14 @@ class CompetitiveTrack {
         
         // Define default tasks that cannot be deleted
         this.defaultTasks = [
-            'Water Drank (cups)',
+            'Water Drank (mL)',
             'Studied (hours)', 
             'Workout Done (hours)',
-            'Morning Routine',
-            'Healthy Eating',
-            'No Sugar',
-            'Meditation'
+            'Make Bed',
+            'Clean'
+            
+            
+            
         ];
         
         this.init();

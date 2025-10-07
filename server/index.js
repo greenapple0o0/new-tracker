@@ -63,13 +63,10 @@ const Score = mongoose.model('Score', scoreSchema);
 
 // Default tasks configuration
 const DEFAULT_TASKS = [
-  { name: 'Water Drank (cups)', type: 'water', maxValue: 8, player1Value: 0, player2Value: 0 },
+  { name: 'Water Drank (cups)', type: 'water', maxValue: 3000, player1Value: 0, player2Value: 0 },
   { name: 'Studied (hours)', type: 'study', maxValue: 8, player1Value: 0, player2Value: 0 },
   { name: 'Workout Done (hours)', type: 'workout', maxValue: 2, player1Value: 0, player2Value: 0 },
-  { name: 'Morning Routine', type: 'checkbox', maxValue: 1, player1Value: 0, player2Value: 0 },
-  { name: 'Healthy Eating', type: 'checkbox', maxValue: 1, player1Value: 0, player2Value: 0 },
-  { name: 'No Sugar', type: 'checkbox', maxValue: 1, player1Value: 0, player2Value: 0 },
-  { name: 'Meditation', type: 'checkbox', maxValue: 1, player1Value: 0, player2Value: 0 }
+  { name: 'Make bed', type: 'checkbox', maxValue: 1, player1Value: 0, player2Value: 0 },
 ];
 
 // Function to ensure default tasks exist
