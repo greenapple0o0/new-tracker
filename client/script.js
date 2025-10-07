@@ -46,9 +46,10 @@ class CompetitiveTrack {
     }
 
     setupModalListeners() {
-        const modal = document.getElementById('taskModal');
-        document.querySelector('.close').addEventListener('click', () => {
-            modal.style.display = 'none';
+        // Task modal
+        const taskModal = document.getElementById('taskModal');
+        document.querySelector('#taskModal .close').addEventListener('click', () => {
+            taskModal.style.display = 'none';
         });
 
         document.getElementById('saveTask').addEventListener('click', () => {
@@ -66,7 +67,7 @@ class CompetitiveTrack {
             }
         });
 
-        // Water modal listeners
+        // Water modal
         const waterModal = document.getElementById('waterModal');
         document.querySelector('#waterModal .close').addEventListener('click', () => {
             waterModal.style.display = 'none';
@@ -76,13 +77,17 @@ class CompetitiveTrack {
             this.saveWaterIncrement();
         });
 
+        document.getElementById('waterAmount').addEventListener('input', (e) => {
+            this.updateWaterPointsPreview();
+        });
+
         document.getElementById('waterAmount').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 this.saveWaterIncrement();
             }
         });
 
-        // Workout modal listeners
+        // Workout modal
         const workoutModal = document.getElementById('workoutModal');
         document.querySelector('#workoutModal .close').addEventListener('click', () => {
             workoutModal.style.display = 'none';
@@ -92,13 +97,37 @@ class CompetitiveTrack {
             this.saveWorkoutIncrement();
         });
 
+        document.getElementById('workoutMinutes').addEventListener('input', (e) => {
+            this.updateWorkoutPointsPreview();
+        });
+
         document.getElementById('workoutMinutes').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 this.saveWorkoutIncrement();
             }
         });
 
-        // Rename modal listeners
+        // Study modal
+        const studyModal = document.getElementById('studyModal');
+        document.querySelector('#studyModal .close').addEventListener('click', () => {
+            studyModal.style.display = 'none';
+        });
+
+        document.getElementById('saveStudy').addEventListener('click', () => {
+            this.saveStudyIncrement();
+        });
+
+        document.getElementById('studyHours').addEventListener('input', (e) => {
+            this.updateStudyPointsPreview();
+        });
+
+        document.getElementById('studyHours').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.saveStudyIncrement();
+            }
+        });
+
+        // Rename modal
         const renameModal = document.getElementById('renameModal');
         document.querySelector('#renameModal .close').addEventListener('click', () => {
             renameModal.style.display = 'none';
@@ -114,19 +143,13 @@ class CompetitiveTrack {
             }
         });
 
+        // Close modals when clicking outside
         window.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-            }
-            if (e.target === waterModal) {
-                waterModal.style.display = 'none';
-            }
-            if (e.target === workoutModal) {
-                workoutModal.style.display = 'none';
-            }
-            if (e.target === renameModal) {
-                renameModal.style.display = 'none';
-            }
+            if (e.target === taskModal) taskModal.style.display = 'none';
+            if (e.target === waterModal) waterModal.style.display = 'none';
+            if (e.target === workoutModal) workoutModal.style.display = 'none';
+            if (e.target === studyModal) studyModal.style.display = 'none';
+            if (e.target === renameModal) renameModal.style.display = 'none';
         });
     }
 
@@ -180,9 +203,13 @@ class CompetitiveTrack {
     async loadScores() {
         try {
             const response = await fetch(`${this.apiBase}/scores`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             this.scores = await response.json();
         } catch (error) {
             console.error('Error loading scores:', error);
+            // Initialize with default structure if server is down
             this.scores = {
                 player1: 'Nish',
                 player2: 'Jess',
@@ -268,7 +295,7 @@ class CompetitiveTrack {
         }
     }
 
-    // Add methods for incremental water and workout input
+    // Water methods
     showWaterIncrement(player) {
         this.currentWaterPlayer = player;
         const modal = document.getElementById('waterModal');
@@ -282,40 +309,18 @@ class CompetitiveTrack {
         document.getElementById('waterAmount').focus();
     }
 
-    showWorkoutIncrement(player) {
-        this.currentWorkoutPlayer = player;
-        const modal = document.getElementById('workoutModal');
-        const playerName = player === 1 ? 'Nish' : 'Jess';
-        const currentWorkout = this.getCurrentWorkout(player);
-        document.getElementById('workoutModalTitle').textContent = `Add Workout - ${playerName}`;
-        document.getElementById('workoutMinutes').value = '';
-        document.getElementById('workoutCurrentTotal').textContent = `Current: ${currentWorkout}`;
-        document.getElementById('workoutPointsPreview').textContent = '0 points';
-        modal.style.display = 'block';
-        document.getElementById('workoutMinutes').focus();
-    }
-
-    showRenameModal(taskIndex) {
-        this.currentRenameTaskIndex = taskIndex;
-        const task = this.scores.dailyTasks[taskIndex];
-        const modal = document.getElementById('renameModal');
-        document.getElementById('renameModalTitle').textContent = `Rename Task`;
-        document.getElementById('newTaskNameInput').value = task.name;
-        modal.style.display = 'block';
-        document.getElementById('newTaskNameInput').focus();
+    updateWaterPointsPreview() {
+        const amount = parseInt(document.getElementById('waterAmount').value) || 0;
+        const points = Math.floor(amount / 500);
+        document.getElementById('waterPointsPreview').textContent = `+${points} point${points !== 1 ? 's' : ''}`;
     }
 
     getCurrentWater(player) {
-        const waterTask = this.scores.dailyTasks.find(task => task.name === 'Water Drank (mL)');
+        const waterTask = this.scores.dailyTasks.find(task => 
+            task.name === 'Water Drank (mL)' || task.type === 'water'
+        );
         if (!waterTask) return 0;
         return Math.round(player === 1 ? waterTask.player1Value : waterTask.player2Value);
-    }
-
-    getCurrentWorkout(player) {
-        const workoutTask = this.scores.dailyTasks.find(task => task.name === 'Workout Done (hours)');
-        if (!workoutTask) return '0 hours';
-        const value = player === 1 ? workoutTask.player1Value : workoutTask.player2Value;
-        return `${value.toFixed(1)} hours`;
     }
 
     async saveWaterIncrement() {
@@ -352,6 +357,35 @@ class CompetitiveTrack {
         }
     }
 
+    // Workout methods
+    showWorkoutIncrement(player) {
+        this.currentWorkoutPlayer = player;
+        const modal = document.getElementById('workoutModal');
+        const playerName = player === 1 ? 'Nish' : 'Jess';
+        const currentWorkout = this.getCurrentWorkout(player);
+        document.getElementById('workoutModalTitle').textContent = `Add Workout - ${playerName}`;
+        document.getElementById('workoutMinutes').value = '';
+        document.getElementById('workoutCurrentTotal').textContent = `Current: ${currentWorkout}`;
+        document.getElementById('workoutPointsPreview').textContent = '0 points';
+        modal.style.display = 'block';
+        document.getElementById('workoutMinutes').focus();
+    }
+
+    updateWorkoutPointsPreview() {
+        const minutes = parseInt(document.getElementById('workoutMinutes').value) || 0;
+        const points = Math.floor(minutes / 30);
+        document.getElementById('workoutPointsPreview').textContent = `+${points} point${points !== 1 ? 's' : ''}`;
+    }
+
+    getCurrentWorkout(player) {
+        const workoutTask = this.scores.dailyTasks.find(task => 
+            task.name === 'Workout Done (hours)' || task.type === 'workout'
+        );
+        if (!workoutTask) return '0 hours';
+        const value = player === 1 ? workoutTask.player1Value : workoutTask.player2Value;
+        return `${value.toFixed(1)} hours`;
+    }
+
     async saveWorkoutIncrement() {
         const minutes = parseInt(document.getElementById('workoutMinutes').value);
         
@@ -384,6 +418,80 @@ class CompetitiveTrack {
             console.error('Error updating workout:', error);
             alert('Error updating workout: ' + error.message);
         }
+    }
+
+    // Study methods
+    showStudyIncrement(player) {
+        this.currentStudyPlayer = player;
+        const modal = document.getElementById('studyModal');
+        const playerName = player === 1 ? 'Nish' : 'Jess';
+        const currentStudy = this.getCurrentStudy(player);
+        document.getElementById('studyModalTitle').textContent = `Add Study Time - ${playerName}`;
+        document.getElementById('studyHours').value = '';
+        document.getElementById('studyCurrentTotal').textContent = `Current: ${currentStudy}`;
+        document.getElementById('studyPointsPreview').textContent = '0 points';
+        modal.style.display = 'block';
+        document.getElementById('studyHours').focus();
+    }
+
+    updateStudyPointsPreview() {
+        const hours = parseFloat(document.getElementById('studyHours').value) || 0;
+        const points = Math.floor(hours);
+        document.getElementById('studyPointsPreview').textContent = `+${points} point${points !== 1 ? 's' : ''}`;
+    }
+
+    getCurrentStudy(player) {
+        const studyTask = this.scores.dailyTasks.find(task => 
+            task.name === 'Studied (hours)' || task.type === 'study'
+        );
+        if (!studyTask) return '0 hours';
+        const value = player === 1 ? studyTask.player1Value : studyTask.player2Value;
+        return `${value} hours`;
+    }
+
+    async saveStudyIncrement() {
+        const hours = parseFloat(document.getElementById('studyHours').value);
+        
+        if (!hours || hours < 0) {
+            alert('Please enter a valid number of hours');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiBase}/scores/task/study/increment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    player: this.currentStudyPlayer, 
+                    hours: hours 
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update study time');
+            }
+            
+            this.scores = await response.json();
+            this.render();
+            document.getElementById('studyModal').style.display = 'none';
+        } catch (error) {
+            console.error('Error updating study:', error);
+            alert('Error updating study: ' + error.message);
+        }
+    }
+
+    // Task management methods
+    showRenameModal(taskIndex) {
+        this.currentRenameTaskIndex = taskIndex;
+        const task = this.scores.dailyTasks[taskIndex];
+        const modal = document.getElementById('renameModal');
+        document.getElementById('renameModalTitle').textContent = `Rename Task`;
+        document.getElementById('newTaskNameInput').value = task.name;
+        modal.style.display = 'block';
+        document.getElementById('newTaskNameInput').focus();
     }
 
     async saveTaskRename() {
@@ -536,16 +644,16 @@ class CompetitiveTrack {
             const canEditNish = this.currentUser === 'nish';
             const canEditJess = this.currentUser === 'jess';
             const isDefault = this.isDefaultTask(task.name);
-            const isWaterTask = task.name === 'Water Drank (mL)';
-            const isWorkoutTask = task.name === 'Workout Done (hours)';
-            const isStudyTask = task.name === 'Studied (hours)';
+            const isWaterTask = task.name === 'Water Drank (mL)' || task.type === 'water';
+            const isWorkoutTask = task.name === 'Workout Done (hours)' || task.type === 'workout';
+            const isStudyTask = task.name === 'Studied (hours)' || task.type === 'study';
 
             let taskContent = '';
             
             if (task.type === 'checkbox') {
                 taskContent = this.renderCheckboxTask(task, index, canEditNish, canEditJess);
             } else {
-                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask);
+                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask, isStudyTask);
             }
             
             // Edit button for custom tasks, delete button for all non-default tasks
@@ -625,7 +733,7 @@ class CompetitiveTrack {
         `;
     }
 
-    renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask) {
+    renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask, isStudyTask) {
         const nishValue = task.player1Value;
         const jessValue = task.player2Value;
         const nishPercent = (nishValue / task.maxValue) * 100;
@@ -672,9 +780,24 @@ class CompetitiveTrack {
                     +30 minutes = 1 point
                 </div>
             `;
+        } else if (isStudyTask) {
+            valueSuffix = ' hours';
+            customInput = `
+                <div style="text-align: center; margin-top: 10px;">
+                    <button onclick="tracker.showStudyIncrement(1)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px;" ${!canEditNish ? 'disabled' : ''}>
+                        <i class="fas fa-plus"></i> Add Study
+                    </button>
+                    <button onclick="tracker.showStudyIncrement(2)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;" ${!canEditJess ? 'disabled' : ''}>
+                        <i class="fas fa-plus"></i> Add Study
+                    </button>
+                </div>
+                <div style="font-size: 0.8em; color: #666; text-align: center; margin-top: 5px;">
+                    +1 hour = 1 point
+                </div>
+            `;
         } else {
-            // Study task - keep existing +/- buttons
-            return this.renderStudyTask(task, index, canEditNish, canEditJess);
+            // Generic number task with +/- buttons
+            return this.renderGenericNumberTask(task, index, canEditNish, canEditJess);
         }
 
         return `
@@ -685,7 +808,7 @@ class CompetitiveTrack {
                         ${nishDisplayValue}${valueSuffix}
                     </div>
                     <div class="points-info" style="text-align: center; font-size: 0.8em; color: #666;">
-                        ${Math.floor(isWaterTask ? nishValue / 750 : nishValue * 2)} points
+                        ${Math.floor(isWaterTask ? nishValue / 500 : (isWorkoutTask ? (nishValue * 60) / 30 : nishValue))} points
                     </div>
                 </div>
                 <div class="task-player">
@@ -694,7 +817,7 @@ class CompetitiveTrack {
                         ${jessDisplayValue}${valueSuffix}
                     </div>
                     <div class="points-info" style="text-align: center; font-size: 0.8em; color: #666;">
-                        ${Math.floor(isWaterTask ? jessValue / 750 : jessValue * 2)} points
+                        ${Math.floor(isWaterTask ? jessValue / 500 : (isWorkoutTask ? (jessValue * 60) / 30 : jessValue))} points
                     </div>
                 </div>
             </div>
@@ -708,8 +831,7 @@ class CompetitiveTrack {
         `;
     }
 
-    // Keep study task with +/- buttons
-    renderStudyTask(task, index, canEditNish, canEditJess) {
+    renderGenericNumberTask(task, index, canEditNish, canEditJess) {
         const nishValue = task.player1Value;
         const jessValue = task.player2Value;
         const nishPercent = (nishValue / task.maxValue) * 100;
@@ -730,7 +852,7 @@ class CompetitiveTrack {
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
-                    <div class="number-max">max: ${task.maxValue} hours</div>
+                    <div class="number-max">max: ${task.maxValue}</div>
                     <div class="progress-container">
                         <div class="progress-bar">
                             <div class="progress-fill nish" style="width: ${nishPercent}%"></div>
@@ -750,7 +872,7 @@ class CompetitiveTrack {
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
-                    <div class="number-max">max: ${task.maxValue} hours</div>
+                    <div class="number-max">max: ${task.maxValue}</div>
                     <div class="progress-container">
                         <div class="progress-bar">
                             <div class="progress-fill jess" style="width: ${jessPercent}%"></div>
