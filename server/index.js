@@ -355,7 +355,56 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
+// Incremental study update endpoint
+app.post('/api/scores/task/study/increment', async (req, res) => {
+  try {
+    const { player, hours } = req.body;
+    
+    if (![1, 2].includes(player)) {
+      return res.status(400).json({ error: 'Invalid player. Use 1 for Nish or 2 for Jess' });
+    }
+    
+    let scores = await Score.findOne();
+    if (!scores) {
+      scores = await initializeScores();
+    }
+    
+    scores = await ensureDefaultTasks(scores);
+    scores = await checkAndResetScores(scores);
+    
+    const studyTask = findTask(scores, 'study', 'Studied (hours)');
+    if (!studyTask) {
+      return res.status(404).json({ error: 'Study task not found' });
+    }
+    
+    const playerKey = player === 1 ? 'player1Value' : 'player2Value';
+    const scoreKey = player === 1 ? 'player1Score' : 'player2Score';
+    
+    const oldValue = studyTask[playerKey];
+    const newValue = Math.max(0, Math.min(oldValue + hours, studyTask.maxValue));
+    
+    // Calculate points: 1 hour = 1 point
+    const oldPoints = Math.floor(oldValue);
+    const newPoints = Math.floor(newValue);
+    const pointChange = newPoints - oldPoints;
+    
+    studyTask[playerKey] = newValue;
+    scores[scoreKey] = Math.max(0, scores[scoreKey] + pointChange);
+    
+    scores.lastUpdated = new Date();
+    await scores.save();
+    
+    const now = new Date();
+    const timeUntilReset = scores.nextReset - now;
+    
+    res.json({
+      ...scores.toObject(),
+      timeUntilReset: Math.max(0, timeUntilReset)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 // Incremental water update endpoint
 app.post('/api/scores/task/water/increment', async (req, res) => {
   try {

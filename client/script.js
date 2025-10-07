@@ -107,25 +107,7 @@ class CompetitiveTrack {
             }
         });
 
-        // Study modal
-        const studyModal = document.getElementById('studyModal');
-        document.querySelector('#studyModal .close').addEventListener('click', () => {
-            studyModal.style.display = 'none';
-        });
-
-        document.getElementById('saveStudy').addEventListener('click', () => {
-            this.saveStudyIncrement();
-        });
-
-        document.getElementById('studyHours').addEventListener('input', (e) => {
-            this.updateStudyPointsPreview();
-        });
-
-        document.getElementById('studyHours').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.saveStudyIncrement();
-            }
-        });
+        // Study modal - REMOVED since we're using +/- buttons for study
 
         // Rename modal
         const renameModal = document.getElementById('renameModal');
@@ -148,7 +130,6 @@ class CompetitiveTrack {
             if (e.target === taskModal) taskModal.style.display = 'none';
             if (e.target === waterModal) waterModal.style.display = 'none';
             if (e.target === workoutModal) workoutModal.style.display = 'none';
-            if (e.target === studyModal) studyModal.style.display = 'none';
             if (e.target === renameModal) renameModal.style.display = 'none';
         });
     }
@@ -420,69 +401,6 @@ class CompetitiveTrack {
         }
     }
 
-    // Study methods
-    showStudyIncrement(player) {
-        this.currentStudyPlayer = player;
-        const modal = document.getElementById('studyModal');
-        const playerName = player === 1 ? 'Nish' : 'Jess';
-        const currentStudy = this.getCurrentStudy(player);
-        document.getElementById('studyModalTitle').textContent = `Add Study Time - ${playerName}`;
-        document.getElementById('studyHours').value = '';
-        document.getElementById('studyCurrentTotal').textContent = `Current: ${currentStudy}`;
-        document.getElementById('studyPointsPreview').textContent = '0 points';
-        modal.style.display = 'block';
-        document.getElementById('studyHours').focus();
-    }
-
-    updateStudyPointsPreview() {
-        const hours = parseFloat(document.getElementById('studyHours').value) || 0;
-        const points = Math.floor(hours);
-        document.getElementById('studyPointsPreview').textContent = `+${points} point${points !== 1 ? 's' : ''}`;
-    }
-
-    getCurrentStudy(player) {
-        const studyTask = this.scores.dailyTasks.find(task => 
-            task.name === 'Studied (hours)' || task.type === 'study'
-        );
-        if (!studyTask) return '0 hours';
-        const value = player === 1 ? studyTask.player1Value : studyTask.player2Value;
-        return `${value} hours`;
-    }
-
-    async saveStudyIncrement() {
-        const hours = parseFloat(document.getElementById('studyHours').value);
-        
-        if (!hours || hours < 0) {
-            alert('Please enter a valid number of hours');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.apiBase}/scores/task/study/increment`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    player: this.currentStudyPlayer, 
-                    hours: hours 
-                })
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to update study time');
-            }
-            
-            this.scores = await response.json();
-            this.render();
-            document.getElementById('studyModal').style.display = 'none';
-        } catch (error) {
-            console.error('Error updating study:', error);
-            alert('Error updating study: ' + error.message);
-        }
-    }
-
     // Task management methods
     showRenameModal(taskIndex) {
         this.currentRenameTaskIndex = taskIndex;
@@ -652,8 +570,12 @@ class CompetitiveTrack {
             
             if (task.type === 'checkbox') {
                 taskContent = this.renderCheckboxTask(task, index, canEditNish, canEditJess);
+            } else if (isWaterTask || isWorkoutTask) {
+                // Use modal-based input for water and workout
+                taskContent = this.renderModalBasedTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask);
             } else {
-                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask, isStudyTask);
+                // Use +/- buttons for study and other number tasks
+                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess);
             }
             
             // Edit button for custom tasks, delete button for all non-default tasks
@@ -733,71 +655,30 @@ class CompetitiveTrack {
         `;
     }
 
-    renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask, isStudyTask) {
+    renderModalBasedTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask) {
         const nishValue = task.player1Value;
         const jessValue = task.player2Value;
         const nishPercent = (nishValue / task.maxValue) * 100;
         const jessPercent = (jessValue / task.maxValue) * 100;
 
         let valueSuffix = '';
-        let maxLabel = `max: ${task.maxValue}`;
         let nishDisplayValue = nishValue;
         let jessDisplayValue = jessValue;
-        let customInput = '';
+        let modalFunction = '';
+        let pointsInfo = '';
 
         if (isWaterTask) {
             valueSuffix = 'mL';
-            maxLabel = `max: ${task.maxValue}mL`;
             nishDisplayValue = Math.round(nishValue);
             jessDisplayValue = Math.round(jessValue);
-            customInput = `
-                <div style="text-align: center; margin-top: 10px;">
-                    <button onclick="tracker.showWaterIncrement(1)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px;" ${!canEditNish ? 'disabled' : ''}>
-                        <i class="fas fa-plus"></i> Add Water
-                    </button>
-                    <button onclick="tracker.showWaterIncrement(2)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;" ${!canEditJess ? 'disabled' : ''}>
-                        <i class="fas fa-plus"></i> Add Water
-                    </button>
-                </div>
-                <div style="font-size: 0.8em; color: #666; text-align: center; margin-top: 5px;">
-                    +500mL = 1 point
-                </div>
-            `;
+            modalFunction = 'showWaterIncrement';
+            pointsInfo = '+500mL = 1 point';
         } else if (isWorkoutTask) {
             valueSuffix = ' hours';
             nishDisplayValue = nishValue.toFixed(1);
             jessDisplayValue = jessValue.toFixed(1);
-            customInput = `
-                <div style="text-align: center; margin-top: 10px;">
-                    <button onclick="tracker.showWorkoutIncrement(1)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px;" ${!canEditNish ? 'disabled' : ''}>
-                        <i class="fas fa-plus"></i> Add Workout
-                    </button>
-                    <button onclick="tracker.showWorkoutIncrement(2)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;" ${!canEditJess ? 'disabled' : ''}>
-                        <i class="fas fa-plus"></i> Add Workout
-                    </button>
-                </div>
-                <div style="font-size: 0.8em; color: #666; text-align: center; margin-top: 5px;">
-                    +30 minutes = 1 point
-                </div>
-            `;
-        } else if (isStudyTask) {
-            valueSuffix = ' hours';
-            customInput = `
-                <div style="text-align: center; margin-top: 10px;">
-                    <button onclick="tracker.showStudyIncrement(1)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px;" ${!canEditNish ? 'disabled' : ''}>
-                        <i class="fas fa-plus"></i> Add Study
-                    </button>
-                    <button onclick="tracker.showStudyIncrement(2)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;" ${!canEditJess ? 'disabled' : ''}>
-                        <i class="fas fa-plus"></i> Add Study
-                    </button>
-                </div>
-                <div style="font-size: 0.8em; color: #666; text-align: center; margin-top: 5px;">
-                    +1 hour = 1 point
-                </div>
-            `;
-        } else {
-            // Generic number task with +/- buttons
-            return this.renderGenericNumberTask(task, index, canEditNish, canEditJess);
+            modalFunction = 'showWorkoutIncrement';
+            pointsInfo = '+30 minutes = 1 point';
         }
 
         return `
@@ -808,7 +689,7 @@ class CompetitiveTrack {
                         ${nishDisplayValue}${valueSuffix}
                     </div>
                     <div class="points-info" style="text-align: center; font-size: 0.8em; color: #666;">
-                        ${Math.floor(isWaterTask ? nishValue / 500 : (isWorkoutTask ? (nishValue * 60) / 30 : nishValue))} points
+                        ${Math.floor(isWaterTask ? nishValue / 500 : (nishValue * 60) / 30)} points
                     </div>
                 </div>
                 <div class="task-player">
@@ -817,11 +698,21 @@ class CompetitiveTrack {
                         ${jessDisplayValue}${valueSuffix}
                     </div>
                     <div class="points-info" style="text-align: center; font-size: 0.8em; color: #666;">
-                        ${Math.floor(isWaterTask ? jessValue / 500 : (isWorkoutTask ? (jessValue * 60) / 30 : jessValue))} points
+                        ${Math.floor(isWaterTask ? jessValue / 500 : (jessValue * 60) / 30)} points
                     </div>
                 </div>
             </div>
-            ${customInput}
+            <div style="text-align: center; margin-top: 10px;">
+                <button onclick="tracker.${modalFunction}(1)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px;" ${!canEditNish ? 'disabled' : ''}>
+                    <i class="fas fa-plus"></i> Add ${isWaterTask ? 'Water' : 'Workout'}
+                </button>
+                <button onclick="tracker.${modalFunction}(2)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;" ${!canEditJess ? 'disabled' : ''}>
+                    <i class="fas fa-plus"></i> Add ${isWaterTask ? 'Water' : 'Workout'}
+                </button>
+            </div>
+            <div style="font-size: 0.8em; color: #666; text-align: center; margin-top: 5px;">
+                ${pointsInfo}
+            </div>
             <div class="progress-container" style="margin-top: 15px;">
                 <div class="progress-bar">
                     <div class="progress-fill nish" style="width: ${nishPercent}%"></div>
@@ -831,11 +722,19 @@ class CompetitiveTrack {
         `;
     }
 
-    renderGenericNumberTask(task, index, canEditNish, canEditJess) {
+    renderNumberTask(task, index, canEditNish, canEditJess) {
         const nishValue = task.player1Value;
         const jessValue = task.player2Value;
         const nishPercent = (nishValue / task.maxValue) * 100;
         const jessPercent = (jessValue / task.maxValue) * 100;
+
+        let valueSuffix = '';
+        let maxLabel = `max: ${task.maxValue}`;
+
+        if (task.name === 'Studied (hours)' || task.type === 'study') {
+            valueSuffix = ' hours';
+            maxLabel = `max: ${task.maxValue} hours`;
+        }
 
         return `
             <div class="task-controls">
@@ -846,13 +745,13 @@ class CompetitiveTrack {
                                 onclick="${canEditNish && nishValue > 0 ? `tracker.updateNumberTask(${index}, 1, -1)` : ''}">
                             <i class="fas fa-minus"></i>
                         </button>
-                        <div class="number-value">${nishValue}</div>
+                        <div class="number-value">${nishValue}${valueSuffix}</div>
                         <button class="number-btn ${!canEditNish || nishValue >= task.maxValue ? 'disabled' : ''}" 
                                 onclick="${canEditNish && nishValue < task.maxValue ? `tracker.updateNumberTask(${index}, 1, 1)` : ''}">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
-                    <div class="number-max">max: ${task.maxValue}</div>
+                    <div class="number-max">${maxLabel}</div>
                     <div class="progress-container">
                         <div class="progress-bar">
                             <div class="progress-fill nish" style="width: ${nishPercent}%"></div>
@@ -866,13 +765,13 @@ class CompetitiveTrack {
                                 onclick="${canEditJess && jessValue > 0 ? `tracker.updateNumberTask(${index}, 2, -1)` : ''}">
                             <i class="fas fa-minus"></i>
                         </button>
-                        <div class="number-value">${jessValue}</div>
+                        <div class="number-value">${jessValue}${valueSuffix}</div>
                         <button class="number-btn ${!canEditJess || jessValue >= task.maxValue ? 'disabled' : ''}" 
                                 onclick="${canEditJess && jessValue < task.maxValue ? `tracker.updateNumberTask(${index}, 2, 1)` : ''}">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
-                    <div class="number-max">max: ${task.maxValue}</div>
+                    <div class="number-max">${maxLabel}</div>
                     <div class="progress-container">
                         <div class="progress-bar">
                             <div class="progress-fill jess" style="width: ${jessPercent}%"></div>
