@@ -350,10 +350,10 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
   }
 });
 
-// Custom water input endpoint
-app.post('/api/scores/task/water/update', async (req, res) => {
+// Incremental water update endpoint
+app.post('/api/scores/task/water/increment', async (req, res) => {
   try {
-    const { player, amount } = req.body; // amount in mL
+    const { player, amount } = req.body; // amount in mL to add
     
     if (![1, 2].includes(player)) {
       return res.status(400).json({ error: 'Invalid player. Use 1 for Nish or 2 for Jess' });
@@ -376,7 +376,7 @@ app.post('/api/scores/task/water/update', async (req, res) => {
     const scoreKey = player === 1 ? 'player1Score' : 'player2Score';
     
     const oldValue = waterTask[playerKey];
-    const newValue = Math.max(0, Math.min(amount, waterTask.maxValue));
+    const newValue = Math.max(0, Math.min(oldValue + amount, waterTask.maxValue));
     
     // Calculate points: 750mL = 1 point
     const oldPoints = Math.floor(oldValue / 750);
@@ -401,10 +401,10 @@ app.post('/api/scores/task/water/update', async (req, res) => {
   }
 });
 
-// Custom workout input endpoint
-app.post('/api/scores/task/workout/update', async (req, res) => {
+// Incremental workout update endpoint
+app.post('/api/scores/task/workout/increment', async (req, res) => {
   try {
-    const { player, minutes } = req.body; // minutes of workout
+    const { player, minutes } = req.body; // minutes to add
     
     if (![1, 2].includes(player)) {
       return res.status(400).json({ error: 'Invalid player. Use 1 for Nish or 2 for Jess' });
@@ -426,19 +426,72 @@ app.post('/api/scores/task/workout/update', async (req, res) => {
     const playerKey = player === 1 ? 'player1Value' : 'player2Value';
     const scoreKey = player === 1 ? 'player1Score' : 'player2Score';
     
-    // Convert minutes to hours for storage
-    const hours = minutes / 60;
-    const oldValue = workoutTask[playerKey];
-    const newValue = Math.max(0, Math.min(hours, workoutTask.maxValue));
+    // Convert current value to minutes, add new minutes, then convert back to hours
+    const currentMinutes = workoutTask[playerKey] * 60;
+    const newTotalMinutes = Math.max(0, Math.min(currentMinutes + minutes, workoutTask.maxValue * 60));
+    const newValue = newTotalMinutes / 60;
     
     // Calculate points: 30 minutes = 1 point
-    const oldPoints = Math.floor(oldValue * 60 / 30); // Convert hours to minutes, then calculate points
-    const newPoints = Math.floor(minutes / 30);
+    const oldPoints = Math.floor(currentMinutes / 30);
+    const newPoints = Math.floor(newTotalMinutes / 30);
     const pointChange = newPoints - oldPoints;
     
     workoutTask[playerKey] = newValue;
     scores[scoreKey] = Math.max(0, scores[scoreKey] + pointChange);
     
+    scores.lastUpdated = new Date();
+    await scores.save();
+    
+    const now = new Date();
+    const timeUntilReset = scores.nextReset - now;
+    
+    res.json({
+      ...scores.toObject(),
+      timeUntilReset: Math.max(0, timeUntilReset)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update task name endpoint
+app.put('/api/scores/task/:taskIndex/rename', async (req, res) => {
+  try {
+    const { taskIndex } = req.params;
+    const { newName } = req.body;
+    
+    if (!newName || newName.trim() === '') {
+      return res.status(400).json({ error: 'Task name is required' });
+    }
+    
+    let scores = await Score.findOne();
+    if (!scores) {
+      scores = await initializeScores();
+    }
+    
+    scores = await ensureDefaultTasks(scores);
+    scores = await checkAndResetScores(scores);
+    
+    const index = parseInt(taskIndex);
+    if (index < 0 || index >= scores.dailyTasks.length) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    
+    const task = scores.dailyTasks[index];
+    
+    // Check if this is a default task (prevent renaming)
+    const isDefaultTask = DEFAULT_TASKS.some(defaultTask => defaultTask.name === task.name);
+    if (isDefaultTask) {
+      return res.status(400).json({ error: 'Cannot rename default tasks' });
+    }
+    
+    // Check if new name already exists
+    const existingTask = scores.dailyTasks.find((t, i) => i !== index && t.name === newName.trim());
+    if (existingTask) {
+      return res.status(400).json({ error: 'Task name already exists' });
+    }
+    
+    task.name = newName.trim();
     scores.lastUpdated = new Date();
     await scores.save();
     

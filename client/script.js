@@ -73,12 +73,12 @@ class CompetitiveTrack {
         });
 
         document.getElementById('saveWater').addEventListener('click', () => {
-            this.saveWaterInput();
+            this.saveWaterIncrement();
         });
 
         document.getElementById('waterAmount').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                this.saveWaterInput();
+                this.saveWaterIncrement();
             }
         });
 
@@ -89,12 +89,28 @@ class CompetitiveTrack {
         });
 
         document.getElementById('saveWorkout').addEventListener('click', () => {
-            this.saveWorkoutInput();
+            this.saveWorkoutIncrement();
         });
 
         document.getElementById('workoutMinutes').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                this.saveWorkoutInput();
+                this.saveWorkoutIncrement();
+            }
+        });
+
+        // Rename modal listeners
+        const renameModal = document.getElementById('renameModal');
+        document.querySelector('#renameModal .close').addEventListener('click', () => {
+            renameModal.style.display = 'none';
+        });
+
+        document.getElementById('saveRename').addEventListener('click', () => {
+            this.saveTaskRename();
+        });
+
+        document.getElementById('newTaskNameInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.saveTaskRename();
             }
         });
 
@@ -107,6 +123,9 @@ class CompetitiveTrack {
             }
             if (e.target === workoutModal) {
                 workoutModal.style.display = 'none';
+            }
+            if (e.target === renameModal) {
+                renameModal.style.display = 'none';
             }
         });
     }
@@ -249,30 +268,57 @@ class CompetitiveTrack {
         }
     }
 
-    // Add methods for water and workout input
-    showWaterInput(player) {
+    // Add methods for incremental water and workout input
+    showWaterIncrement(player) {
         this.currentWaterPlayer = player;
         const modal = document.getElementById('waterModal');
         const playerName = player === 1 ? 'Nish' : 'Jess';
-        document.getElementById('waterModalTitle').textContent = `Water Intake - ${playerName}`;
+        const currentWater = this.getCurrentWater(player);
+        document.getElementById('waterModalTitle').textContent = `Add Water - ${playerName}`;
         document.getElementById('waterAmount').value = '';
+        document.getElementById('waterCurrentTotal').textContent = `Current: ${currentWater}mL`;
         document.getElementById('waterPointsPreview').textContent = '0 points';
         modal.style.display = 'block';
         document.getElementById('waterAmount').focus();
     }
 
-    showWorkoutInput(player) {
+    showWorkoutIncrement(player) {
         this.currentWorkoutPlayer = player;
         const modal = document.getElementById('workoutModal');
         const playerName = player === 1 ? 'Nish' : 'Jess';
-        document.getElementById('workoutModalTitle').textContent = `Workout Time - ${playerName}`;
+        const currentWorkout = this.getCurrentWorkout(player);
+        document.getElementById('workoutModalTitle').textContent = `Add Workout - ${playerName}`;
         document.getElementById('workoutMinutes').value = '';
+        document.getElementById('workoutCurrentTotal').textContent = `Current: ${currentWorkout}`;
         document.getElementById('workoutPointsPreview').textContent = '0 points';
         modal.style.display = 'block';
         document.getElementById('workoutMinutes').focus();
     }
 
-    async saveWaterInput() {
+    showRenameModal(taskIndex) {
+        this.currentRenameTaskIndex = taskIndex;
+        const task = this.scores.dailyTasks[taskIndex];
+        const modal = document.getElementById('renameModal');
+        document.getElementById('renameModalTitle').textContent = `Rename Task`;
+        document.getElementById('newTaskNameInput').value = task.name;
+        modal.style.display = 'block';
+        document.getElementById('newTaskNameInput').focus();
+    }
+
+    getCurrentWater(player) {
+        const waterTask = this.scores.dailyTasks.find(task => task.name === 'Water Drank (mL)');
+        if (!waterTask) return 0;
+        return Math.round(player === 1 ? waterTask.player1Value : waterTask.player2Value);
+    }
+
+    getCurrentWorkout(player) {
+        const workoutTask = this.scores.dailyTasks.find(task => task.name === 'Workout Done (hours)');
+        if (!workoutTask) return '0 hours';
+        const value = player === 1 ? workoutTask.player1Value : workoutTask.player2Value;
+        return `${value.toFixed(1)} hours`;
+    }
+
+    async saveWaterIncrement() {
         const amount = parseInt(document.getElementById('waterAmount').value);
         
         if (!amount || amount < 0) {
@@ -281,7 +327,7 @@ class CompetitiveTrack {
         }
 
         try {
-            const response = await fetch(`${this.apiBase}/scores/task/water/update`, {
+            const response = await fetch(`${this.apiBase}/scores/task/water/increment`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -306,7 +352,7 @@ class CompetitiveTrack {
         }
     }
 
-    async saveWorkoutInput() {
+    async saveWorkoutIncrement() {
         const minutes = parseInt(document.getElementById('workoutMinutes').value);
         
         if (!minutes || minutes < 0) {
@@ -315,7 +361,7 @@ class CompetitiveTrack {
         }
 
         try {
-            const response = await fetch(`${this.apiBase}/scores/task/workout/update`, {
+            const response = await fetch(`${this.apiBase}/scores/task/workout/increment`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -337,6 +383,39 @@ class CompetitiveTrack {
         } catch (error) {
             console.error('Error updating workout:', error);
             alert('Error updating workout: ' + error.message);
+        }
+    }
+
+    async saveTaskRename() {
+        const newName = document.getElementById('newTaskNameInput').value.trim();
+        
+        if (!newName) {
+            alert('Please enter a new task name');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiBase}/scores/task/${this.currentRenameTaskIndex}/rename`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    newName: newName
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to rename task');
+            }
+            
+            this.scores = await response.json();
+            this.render();
+            document.getElementById('renameModal').style.display = 'none';
+        } catch (error) {
+            console.error('Error renaming task:', error);
+            alert('Error renaming task: ' + error.message);
         }
     }
 
@@ -469,11 +548,23 @@ class CompetitiveTrack {
                 taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask);
             }
             
+            // Edit button for custom tasks, delete button for all non-default tasks
+            const editButton = isDefault ? '' : `
+                <button onclick="tracker.showRenameModal(${index})" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px;">
+                    <i class="fas fa-edit"></i> Rename
+                </button>
+            `;
+            
             const deleteButton = isDefault ? '' : `
+                <button onclick="tracker.deleteTask(${index})" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            `;
+
+            const actionButtons = isDefault ? '' : `
                 <div style="text-align: center; margin-top: 15px;">
-                    <button onclick="tracker.deleteTask(${index})" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px;">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
+                    ${editButton}
+                    ${deleteButton}
                 </div>
             `;
 
@@ -483,7 +574,7 @@ class CompetitiveTrack {
                     <div class="task-type">${task.type}</div>
                 </div>
                 ${taskContent}
-                ${deleteButton}
+                ${actionButtons}
             `;
             container.appendChild(taskEl);
         });
@@ -553,15 +644,15 @@ class CompetitiveTrack {
             jessDisplayValue = Math.round(jessValue);
             customInput = `
                 <div style="text-align: center; margin-top: 10px;">
-                    <button onclick="tracker.showWaterInput(1)" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px;" ${!canEditNish ? 'disabled' : ''}>
-                        <i class="fas fa-edit"></i> Custom Input
+                    <button onclick="tracker.showWaterIncrement(1)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px;" ${!canEditNish ? 'disabled' : ''}>
+                        <i class="fas fa-plus"></i> Add Water
                     </button>
-                    <button onclick="tracker.showWaterInput(2)" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;" ${!canEditJess ? 'disabled' : ''}>
-                        <i class="fas fa-edit"></i> Custom Input
+                    <button onclick="tracker.showWaterIncrement(2)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;" ${!canEditJess ? 'disabled' : ''}>
+                        <i class="fas fa-plus"></i> Add Water
                     </button>
                 </div>
                 <div style="font-size: 0.8em; color: #666; text-align: center; margin-top: 5px;">
-                    750mL = 1 point
+                    +500mL = 1 point
                 </div>
             `;
         } else if (isWorkoutTask) {
@@ -570,15 +661,15 @@ class CompetitiveTrack {
             jessDisplayValue = jessValue.toFixed(1);
             customInput = `
                 <div style="text-align: center; margin-top: 10px;">
-                    <button onclick="tracker.showWorkoutInput(1)" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px;" ${!canEditNish ? 'disabled' : ''}>
-                        <i class="fas fa-edit"></i> Custom Input
+                    <button onclick="tracker.showWorkoutIncrement(1)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px;" ${!canEditNish ? 'disabled' : ''}>
+                        <i class="fas fa-plus"></i> Add Workout
                     </button>
-                    <button onclick="tracker.showWorkoutInput(2)" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;" ${!canEditJess ? 'disabled' : ''}>
-                        <i class="fas fa-edit"></i> Custom Input
+                    <button onclick="tracker.showWorkoutIncrement(2)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;" ${!canEditJess ? 'disabled' : ''}>
+                        <i class="fas fa-plus"></i> Add Workout
                     </button>
                 </div>
                 <div style="font-size: 0.8em; color: #666; text-align: center; margin-top: 5px;">
-                    30 minutes = 1 point
+                    +30 minutes = 1 point
                 </div>
             `;
         } else {
