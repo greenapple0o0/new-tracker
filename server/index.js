@@ -225,11 +225,11 @@ app.get('/api/scores', async (req, res) => {
   }
 });
 
-// Update task value
-app.post('/api/scores/task/:taskIndex/update', async (req, res) => {
+// Toggle checkbox task
+app.post('/api/scores/task/:taskIndex/toggle', async (req, res) => {
   try {
     const { taskIndex } = req.params;
-    const { player, value } = req.body;
+    const { player } = req.body;
     
     if (![1, 2].includes(player)) {
       return res.status(400).json({ error: 'Invalid player. Use 1 for Nish or 2 for Jess' });
@@ -249,14 +249,19 @@ app.post('/api/scores/task/:taskIndex/update', async (req, res) => {
     }
     
     const task = scores.dailyTasks[index];
+    if (task.type !== 'checkbox') {
+      return res.status(400).json({ error: 'This task is not a checkbox type' });
+    }
+    
     const playerKey = player === 1 ? 'player1Value' : 'player2Value';
     const scoreKey = player === 1 ? 'player1Score' : 'player2Score';
     
-    const newValue = Math.max(0, Math.min(value, task.maxValue));
-    const oldValue = task[playerKey];
+    // Toggle checkbox (0 or 1)
+    const newValue = task[playerKey] === 0 ? 1 : 0;
+    const pointChange = newValue - task[playerKey]; // This should be 1 or -1
     
     task[playerKey] = newValue;
-    scores[scoreKey] = Math.max(0, scores[scoreKey] + (newValue - oldValue));
+    scores[scoreKey] = Math.max(0, scores[scoreKey] + pointChange);
     
     scores.lastUpdated = new Date();
     await scores.save();
@@ -273,8 +278,77 @@ app.post('/api/scores/task/:taskIndex/update', async (req, res) => {
   }
 });
 
-// Toggle checkbox task
-// Add these new endpoints to server/index.js
+// Increment/decrement number tasks (for study)
+app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
+  try {
+    const { taskIndex } = req.params;
+    const { player, change } = req.body;
+    
+    if (![1, 2].includes(player)) {
+      return res.status(400).json({ error: 'Invalid player. Use 1 for Nish or 2 for Jess' });
+    }
+    
+    let scores = await Score.findOne();
+    if (!scores) {
+      scores = await initializeScores();
+    }
+    
+    scores = await ensureDefaultTasks(scores);
+    scores = await checkAndResetScores(scores);
+    
+    const index = parseInt(taskIndex);
+    if (index < 0 || index >= scores.dailyTasks.length) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    
+    const task = scores.dailyTasks[index];
+    if (task.type === 'checkbox') {
+      return res.status(400).json({ error: 'Use toggle for checkbox tasks' });
+    }
+    
+    const playerKey = player === 1 ? 'player1Value' : 'player2Value';
+    const scoreKey = player === 1 ? 'player1Score' : 'player2Score';
+    
+    let pointChange = 0;
+    let newValue = task[playerKey];
+    
+    // For study task, 1 hour = 1 point
+    if (change > 0) {
+      // Increment
+      const potentialNewValue = task[playerKey] + 1;
+      if (potentialNewValue <= task.maxValue) {
+        newValue = potentialNewValue;
+        pointChange = 1;
+      }
+    } else if (change < 0) {
+      // Decrement
+      const potentialNewValue = task[playerKey] - 1;
+      if (potentialNewValue >= 0) {
+        newValue = potentialNewValue;
+        pointChange = -1;
+      }
+    }
+    
+    // Only update if there's an actual change
+    if (pointChange !== 0) {
+      task[playerKey] = newValue;
+      scores[scoreKey] = Math.max(0, scores[scoreKey] + pointChange);
+      
+      scores.lastUpdated = new Date();
+      await scores.save();
+    }
+    
+    const now = new Date();
+    const timeUntilReset = scores.nextReset - now;
+    
+    res.json({
+      ...scores.toObject(),
+      timeUntilReset: Math.max(0, timeUntilReset)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Custom water input endpoint
 app.post('/api/scores/task/water/update', async (req, res) => {
@@ -379,6 +453,7 @@ app.post('/api/scores/task/workout/update', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 // Add custom task
 app.post('/api/scores/task', async (req, res) => {
   try {
