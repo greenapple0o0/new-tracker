@@ -5,16 +5,11 @@ class CompetitiveTrack {
         this.currentUser = null;
         this.countdownInterval = null;
         
-        // Define default tasks that cannot be deleted
+        // Updated default tasks - Only Water (3000mL), Study, and Workout
         this.defaultTasks = [
             'Water Drank (mL)',
             'Studied (hours)', 
-            'Workout Done (hours)',
-            'Make Bed',
-            'Clean'
-            
-            
-            
+            'Workout Done (hours)'
         ];
         
         this.init();
@@ -23,6 +18,7 @@ class CompetitiveTrack {
     async init() {
         this.setupLoginListeners();
         this.setupModalListeners();
+        this.setupControlListeners(); // Add this line
     }
 
     setupLoginListeners() {
@@ -65,9 +61,26 @@ class CompetitiveTrack {
             maxValueContainer.style.display = e.target.value === 'checkbox' ? 'none' : 'block';
         });
 
+        // Add Enter key support in modal
+        document.getElementById('newTaskName').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.saveNewTask();
+            }
+        });
+
         window.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.style.display = 'none';
+            }
+        });
+    }
+
+    // NEW METHOD: Setup control button listeners
+    setupControlListeners() {
+        // This will be called after the app loads to set up the main control buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'addTask' || e.target.closest('#addTask')) {
+                this.showTaskModal();
             }
         });
     }
@@ -174,22 +187,31 @@ class CompetitiveTrack {
         const type = document.getElementById('newTaskType').value;
         const maxValue = type !== 'checkbox' ? parseInt(document.getElementById('newTaskMaxValue').value) : 1;
 
-        if (name) {
-            try {
-                const response = await fetch(`${this.apiBase}/scores/task`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ name, type, maxValue })
-                });
-                this.scores = await response.json();
-                this.render();
-                document.getElementById('taskModal').style.display = 'none';
-            } catch (error) {
-                console.error('Error adding task:', error);
-                alert('Error adding task: ' + error.message);
+        if (!name) {
+            alert('Please enter a task name!');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiBase}/scores/task`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, type, maxValue })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to add task');
             }
+            
+            this.scores = await response.json();
+            this.render();
+            document.getElementById('taskModal').style.display = 'none';
+        } catch (error) {
+            console.error('Error adding task:', error);
+            alert('Error adding task: ' + error.message);
         }
     }
 
@@ -339,18 +361,20 @@ class CompetitiveTrack {
             container.appendChild(taskEl);
         });
 
-        // Add task button
+        // Add task button at the bottom
         const addTaskEl = document.createElement('div');
         addTaskEl.className = 'task';
         addTaskEl.style.textAlign = 'center';
         addTaskEl.style.padding = '40px';
+        addTaskEl.style.cursor = 'pointer';
         addTaskEl.innerHTML = `
-            <button id="addTaskBtn" class="btn btn-outline" style="font-size: 1.1em;">
+            <div id="addTaskBtn" class="btn btn-outline" style="font-size: 1.1em; display: inline-flex; align-items: center; gap: 8px;">
                 <i class="fas fa-plus"></i> Add Custom Task
-            </button>
+            </div>
         `;
         container.appendChild(addTaskEl);
 
+        // Add event listener to the new button
         document.getElementById('addTaskBtn').addEventListener('click', () => {
             this.showTaskModal();
         });

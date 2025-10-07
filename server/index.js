@@ -61,17 +61,31 @@ const scoreSchema = new mongoose.Schema({
 
 const Score = mongoose.model('Score', scoreSchema);
 
-// Default tasks configuration
+// Updated default tasks - Only Water (3000mL), Study, and Workout
 const DEFAULT_TASKS = [
-  { name: 'Water Drank (cups)', type: 'water', maxValue: 3000, player1Value: 0, player2Value: 0 },
+  { name: 'Water Drank (mL)', type: 'water', maxValue: 3000, player1Value: 0, player2Value: 0 },
   { name: 'Studied (hours)', type: 'study', maxValue: 8, player1Value: 0, player2Value: 0 },
-  { name: 'Workout Done (hours)', type: 'workout', maxValue: 2, player1Value: 0, player2Value: 0 },
-  { name: 'Make bed', type: 'checkbox', maxValue: 1, player1Value: 0, player2Value: 0 },
+  { name: 'Workout Done (hours)', type: 'workout', maxValue: 2, player1Value: 0, player2Value: 0 }
 ];
 
 // Function to ensure default tasks exist
 const ensureDefaultTasks = async (scores) => {
   let needsUpdate = false;
+  
+  // Remove any tasks that are not in the new default list
+  const tasksToRemove = [];
+  scores.dailyTasks.forEach((task, index) => {
+    const isDefaultInNewList = DEFAULT_TASKS.some(defaultTask => defaultTask.name === task.name);
+    if (!isDefaultInNewList && ['Water Drank (cups)', 'Morning Routine', 'Healthy Eating', 'No Sugar', 'Meditation'].includes(task.name)) {
+      tasksToRemove.push(index);
+    }
+  });
+  
+  // Remove tasks in reverse order to avoid index issues
+  for (let i = tasksToRemove.length - 1; i >= 0; i--) {
+    scores.dailyTasks.splice(tasksToRemove[i], 1);
+    needsUpdate = true;
+  }
   
   // Check if any default tasks are missing
   DEFAULT_TASKS.forEach(defaultTask => {
@@ -80,6 +94,12 @@ const ensureDefaultTasks = async (scores) => {
       scores.dailyTasks.push(defaultTask);
       needsUpdate = true;
       console.log(`✅ Added default task: ${defaultTask.name}`);
+    } else if (defaultTask.name === 'Water Drank (mL)' && existingTask.maxValue !== 3000) {
+      // Update water task to 3000mL if it exists with wrong maxValue
+      existingTask.maxValue = 3000;
+      existingTask.name = 'Water Drank (mL)';
+      needsUpdate = true;
+      console.log(`✅ Updated water task to 3000mL`);
     }
   });
 
@@ -164,14 +184,13 @@ const initializeScores = async () => {
         player2: 'Jess',
         player1Score: 0,
         player2Score: 0,
-        dailyTasks: DEFAULT_TASKS, // Start with default tasks
+        dailyTasks: DEFAULT_TASKS,
         dailyHistory: [],
         lastReset: new Date(),
         nextReset: nextReset
       });
       console.log('✅ New scores document created with default tasks');
     } else {
-      // Ensure default tasks exist for existing documents
       scores = await ensureDefaultTasks(scores);
     }
     return scores;
@@ -190,7 +209,7 @@ app.get('/api/scores', async (req, res) => {
     if (!scores) {
       scores = await initializeScores();
     } else {
-      scores = await ensureDefaultTasks(scores); // Always ensure default tasks
+      scores = await ensureDefaultTasks(scores);
       scores = await checkAndResetScores(scores);
     }
     
@@ -449,41 +468,6 @@ app.delete('/api/scores/task/:taskIndex', async (req, res) => {
   }
 });
 
-// Manual reset endpoint (optional)
-app.post('/api/scores/manual-reset', async (req, res) => {
-  try {
-    let scores = await Score.findOne();
-    if (!scores) {
-      scores = await initializeScores();
-    }
-    
-    await saveDailyHistory(scores);
-    
-    scores.player1Score = 0;
-    scores.player2Score = 0;
-    scores.dailyTasks.forEach(task => {
-      task.player1Value = 0;
-      task.player2Value = 0;
-    });
-    
-    const now = new Date();
-    scores.lastReset = now;
-    scores.nextReset = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    scores.lastUpdated = now;
-    
-    await scores.save();
-    
-    const timeUntilReset = scores.nextReset - now;
-    
-    res.json({
-      ...scores.toObject(),
-      timeUntilReset: Math.max(0, timeUntilReset)
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // Serve the frontend for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/index.html'));
@@ -500,6 +484,6 @@ app.listen(PORT, () => {
   console.log(`📁 Serving frontend from: ${path.join(__dirname, '../client')}`);
   console.log(`👥 Players: Nish vs Jess`);
   console.log(`🔄 Auto-reset: Every 24 hours`);
-  console.log(`📊 Default tasks: Water, Study, Workout + 4 checkboxes`);
+  console.log(`📊 Default tasks: Water (3000mL), Study, Workout`);
   console.log(`📅 7-day history calendar`);
 });
