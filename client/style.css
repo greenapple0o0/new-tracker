@@ -12,6 +12,7 @@
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
+    --tie-color: #94a3b8;
 }
 
 * {
@@ -28,7 +29,6 @@ body {
     line-height: 1.6;
 }
 
-/* Professional Container */
 .container {
     max-width: 1200px;
     margin: 0 auto;
@@ -67,7 +67,6 @@ header {
     -webkit-text-fill-color: transparent;
 }
 
-
 .app-title h1 {
     font-size: 1.8em;
     font-weight: 700;
@@ -83,6 +82,31 @@ header {
 .welcome-text {
     font-size: 0.95em;
     opacity: 0.9;
+}
+
+/* Countdown Timer */
+.countdown-section {
+    text-align: center;
+    padding: 15px 30px;
+    background: rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.countdown-label {
+    font-size: 0.9em;
+    opacity: 0.8;
+    margin-bottom: 5px;
+}
+
+.countdown-timer {
+    font-size: 1.8em;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    background: rgba(255,255,255,0.2);
+    padding: 8px 20px;
+    border-radius: 10px;
+    display: inline-block;
+    backdrop-filter: blur(10px);
 }
 
 /* Score Header */
@@ -163,6 +187,70 @@ header {
     backdrop-filter: blur(10px);
 }
 
+/* Calendar Section */
+.calendar-section {
+    padding: 30px;
+    background: var(--light);
+    border-bottom: 1px solid var(--light-gray);
+}
+
+.calendar-section h3 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: var(--dark);
+    font-size: 1.3em;
+}
+
+.calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.calendar-day.nish {
+    background: linear-gradient(135deg, var(--nish-color), #1d4ed8);
+}
+
+.calendar-day.jess {
+    background: linear-gradient(135deg, var(--jess-color), #be185d);
+}
+
+.calendar-day.tie {
+    background: linear-gradient(135deg, var(--tie-color), #64748b);
+}
+
+.calendar-day.empty {
+    background: var(--light-gray);
+    color: var(--gray);
+}
+
+.calendar-date {
+    font-size: 0.7em;
+    opacity: 0.8;
+}
+
+.calendar-score {
+    font-size: 0.9em;
+    margin-top: 2px;
+}
+
 /* Controls */
 .controls {
     padding: 25px 30px;
@@ -212,11 +300,6 @@ header {
     color: var(--primary);
 }
 
-.btn-danger {
-    background: var(--danger);
-    color: white;
-}
-
 /* Tasks Container */
 .tasks-container {
     padding: 30px;
@@ -251,12 +334,12 @@ header {
     color: var(--dark);
 }
 
-.task-points {
+.task-type {
     background: var(--primary);
     color: white;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.9em;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.7em;
     font-weight: 600;
 }
 
@@ -267,7 +350,6 @@ header {
 
 .task-player {
     flex: 1;
-    text-align: center;
 }
 
 .task-player-label {
@@ -275,17 +357,18 @@ header {
     color: var(--gray);
     margin-bottom: 10px;
     font-weight: 500;
+    text-align: center;
 }
 
+/* Checkbox Tasks */
 .checkbox-container {
     display: flex;
     justify-content: center;
-    gap: 15px;
 }
 
 .checkbox-btn {
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
     border: 3px solid var(--light-gray);
     border-radius: 12px;
     display: flex;
@@ -293,7 +376,7 @@ header {
     justify-content: center;
     cursor: pointer;
     transition: all 0.3s ease;
-    font-size: 1.2em;
+    font-size: 1.5em;
     background: white;
 }
 
@@ -316,6 +399,79 @@ header {
 .checkbox-btn.jess:not(.disabled):not(.checked):hover {
     border-color: var(--jess-color);
     color: var(--jess-color);
+}
+
+/* Number Tasks (Water, Study, Workout) */
+.number-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.number-btn {
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--light-gray);
+    border-radius: 8px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2em;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.number-btn:hover:not(.disabled) {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.number-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.number-value {
+    font-size: 1.3em;
+    font-weight: 600;
+    min-width: 40px;
+    text-align: center;
+}
+
+.number-max {
+    font-size: 0.8em;
+    color: var(--gray);
+    text-align: center;
+    margin-top: 5px;
+}
+
+/* Progress Bar */
+.progress-container {
+    margin-top: 10px;
+}
+
+.progress-bar {
+    height: 8px;
+    background: var(--light-gray);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.progress-fill.nish {
+    background: linear-gradient(90deg, var(--nish-color), #1d4ed8);
+}
+
+.progress-fill.jess {
+    background: linear-gradient(90deg, var(--jess-color), #be185d);
 }
 
 /* Login Styles */
@@ -351,7 +507,6 @@ header {
     -webkit-text-fill-color: transparent;
     margin-bottom: 15px;
 }
-
 
 .app-logo h1 {
     font-size: 2.2em;
@@ -476,7 +631,8 @@ header {
     font-size: 1.5em;
 }
 
-.modal-content input {
+.modal-content input,
+.modal-content select {
     width: 100%;
     padding: 14px;
     margin: 12px 0;
@@ -486,37 +642,14 @@ header {
     transition: border-color 0.3s ease;
 }
 
-.modal-content input:focus {
+.modal-content input:focus,
+.modal-content select:focus {
     outline: none;
     border-color: var(--primary);
 }
 
-/* Winner Section */
-.winner-section {
-    padding: 40px;
-    text-align: center;
-    background: linear-gradient(135deg, #fffbeb, #fef3c7);
-    margin: 30px;
-    border-radius: 16px;
-    display: none;
-    border: 2px solid #f59e0b;
-}
-
-.winner-section.show {
-    display: block;
-    animation: celebrate 1s ease;
-}
-
-@keyframes celebrate {
-    0% { transform: scale(0.8); opacity: 0; }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); opacity: 1; }
-}
-
-#winnerText {
-    font-size: 1.8em;
-    color: #d97706;
-    font-weight: 700;
+.task-type-select {
+    margin-bottom: 15px;
 }
 
 /* Responsive Design */
@@ -574,5 +707,14 @@ header {
     .modal-content {
         margin: 10% auto;
         padding: 30px 25px;
+    }
+    
+    .calendar {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+    }
+    
+    .calendar-day:nth-child(n+5) {
+        grid-column: span 2;
     }
 }

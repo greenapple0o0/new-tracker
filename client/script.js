@@ -3,15 +3,16 @@ class CompetitiveTrack {
         this.apiBase = '/api';
         this.scores = null;
         this.currentUser = null;
+        this.countdownInterval = null;
         this.init();
     }
 
     async init() {
         this.setupLoginListeners();
+        this.setupModalListeners();
     }
 
     setupLoginListeners() {
-        // User selection
         document.querySelectorAll('.user-option').forEach(option => {
             option.addEventListener('click', (e) => {
                 document.querySelectorAll('.user-option').forEach(opt => {
@@ -21,20 +22,39 @@ class CompetitiveTrack {
             });
         });
 
-        // Start game button
         document.getElementById('startGame').addEventListener('click', () => {
             this.handleLogin();
         });
 
-        // Logout button
         document.getElementById('logoutBtn').addEventListener('click', () => {
             this.logout();
         });
 
-        // Enter key support
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && document.getElementById('loginPage').style.display !== 'none') {
                 this.handleLogin();
+            }
+        });
+    }
+
+    setupModalListeners() {
+        const modal = document.getElementById('taskModal');
+        document.querySelector('.close').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        document.getElementById('saveTask').addEventListener('click', () => {
+            this.saveNewTask();
+        });
+
+        document.getElementById('newTaskType').addEventListener('change', (e) => {
+            const maxValueContainer = document.getElementById('maxValueContainer');
+            maxValueContainer.style.display = e.target.value === 'checkbox' ? 'none' : 'block';
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
             }
         });
     }
@@ -48,34 +68,33 @@ class CompetitiveTrack {
 
         this.currentUser = selectedUser.dataset.user;
         
-        // Hide login, show app
         document.getElementById('loginPage').style.display = 'none';
         document.getElementById('app').style.display = 'block';
 
-        // Update current user display
         document.getElementById('currentUser').textContent = 
             this.currentUser === 'nish' ? 'Nish' : 'Jess';
 
-        // Initialize the app
         this.initializeApp();
     }
 
     logout() {
-        // Show login, hide app
         document.getElementById('app').style.display = 'none';
         document.getElementById('loginPage').style.display = 'flex';
         
-        // Reset selection
         document.querySelectorAll('.user-option').forEach(opt => {
             opt.classList.remove('selected');
         });
         
         this.currentUser = null;
+        
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+        }
     }
 
     async initializeApp() {
         await this.loadScores();
-        this.setupEventListeners();
+        this.startCountdownTimer();
         this.render();
     }
 
@@ -83,136 +102,137 @@ class CompetitiveTrack {
         try {
             const response = await fetch(`${this.apiBase}/scores`);
             this.scores = await response.json();
-            
-            // Ensure player names are fixed
-            this.scores.player1 = 'Nish';
-            this.scores.player2 = 'Jess';
-            
         } catch (error) {
             console.error('Error loading scores:', error);
-            // Initialize with default scores if API fails
             this.scores = {
                 player1: 'Nish',
                 player2: 'Jess',
                 player1Score: 0,
                 player2Score: 0,
-                categories: []
+                dailyTasks: [],
+                dailyHistory: [],
+                timeUntilReset: 24 * 60 * 60 * 1000
             };
         }
     }
 
-    async saveScores() {
-        try {
-            // Ensure names remain fixed
-            this.scores.player1 = 'Nish';
-            this.scores.player2 = 'Jess';
-            
-            const response = await fetch(`${this.apiBase}/scores`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(this.scores)
-            });
-            this.scores = await response.json();
-            this.render();
-        } catch (error) {
-            console.error('Error saving scores:', error);
+    startCountdownTimer() {
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
         }
+
+        this.countdownInterval = setInterval(() => {
+            if (this.scores && this.scores.timeUntilReset > 0) {
+                this.scores.timeUntilReset -= 1000;
+                this.updateCountdownDisplay();
+                
+                if (this.scores.timeUntilReset <= 0) {
+                    // Reset occurred, reload scores
+                    this.loadScores().then(() => this.render());
+                }
+            }
+        }, 1000);
+
+        this.updateCountdownDisplay();
     }
 
-    async addTask(name, points) {
-        try {
-            const response = await fetch(`${this.apiBase}/scores/category`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    name: name,
-                    points: parseInt(points) || 1
-                })
-            });
-            this.scores = await response.json();
-            this.render();
-        } catch (error) {
-            console.error('Error adding task:', error);
-        }
-    }
+    updateCountdownDisplay() {
+        const timerElement = document.getElementById('countdownTimer');
+        if (!timerElement || !this.scores) return;
 
-    setupEventListeners() {
-        // Control buttons
-        document.getElementById('addCategory').addEventListener('click', () => {
-            this.showTaskModal();
-        });
+        const totalSeconds = Math.floor(this.scores.timeUntilReset / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
 
-        document.getElementById('resetScores').addEventListener('click', () => {
-            if (confirm('Are you sure you want to reset all scores and tasks?')) {
-                this.resetAllScores();
-            }
-        });
-
-        // Modal events
-        const modal = document.getElementById('taskModal');
-        document.querySelector('.close').addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
-
-        document.getElementById('saveTask').addEventListener('click', () => {
-            this.saveNewTask();
-        });
-
-        window.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
+        timerElement.textContent = 
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
 
     showTaskModal() {
         document.getElementById('taskModal').style.display = 'block';
         document.getElementById('newTaskName').value = '';
-        document.getElementById('newTaskPoints').value = '1';
+        document.getElementById('newTaskType').value = 'checkbox';
+        document.getElementById('maxValueContainer').style.display = 'none';
         document.getElementById('newTaskName').focus();
     }
 
     async saveNewTask() {
         const name = document.getElementById('newTaskName').value.trim();
-        const points = document.getElementById('newTaskPoints').value;
-        
+        const type = document.getElementById('newTaskType').value;
+        const maxValue = type !== 'checkbox' ? parseInt(document.getElementById('newTaskMaxValue').value) : 1;
+
         if (name) {
-            await this.addTask(name, points);
-            document.getElementById('taskModal').style.display = 'none';
+            try {
+                const response = await fetch(`${this.apiBase}/scores/task`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name, type, maxValue })
+                });
+                this.scores = await response.json();
+                this.render();
+                document.getElementById('taskModal').style.display = 'none';
+            } catch (error) {
+                console.error('Error adding task:', error);
+                alert('Error adding task: ' + error.message);
+            }
         }
     }
 
-    async toggleTaskCompletion(taskIndex, player) {
-        const task = this.scores.categories[taskIndex];
-        const playerKey = player === 1 ? 'player1Score' : 'player2Score';
-        const totalKey = player === 1 ? 'player1Score' : 'player2Score';
-        const points = task.points || 1;
-
-        // Toggle completion
-        if (task.completedBy === player) {
-            // Undo completion
-            task.completedBy = null;
-            this.scores[totalKey] = Math.max(0, this.scores[totalKey] - points);
-        } else {
-            // Complete task
-            task.completedBy = player;
-            this.scores[totalKey] += points;
+    async toggleCheckbox(taskIndex, player) {
+        if (this.currentUser !== (player === 1 ? 'nish' : 'jess')) {
+            return; // Prevent other user from toggling
         }
 
-        await this.saveScores();
+        try {
+            const response = await fetch(`${this.apiBase}/scores/task/${taskIndex}/toggle`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ player })
+            });
+            this.scores = await response.json();
+            this.render();
+        } catch (error) {
+            console.error('Error toggling task:', error);
+        }
     }
 
-    async resetAllScores() {
-        this.scores.player1Score = 0;
-        this.scores.player2Score = 0;
-        this.scores.categories.forEach(task => {
-            task.completedBy = null;
-        });
-        await this.saveScores();
+    async updateNumberTask(taskIndex, player, change) {
+        if (this.currentUser !== (player === 1 ? 'nish' : 'jess')) {
+            return; // Prevent other user from modifying
+        }
+
+        try {
+            const response = await fetch(`${this.apiBase}/scores/task/${taskIndex}/increment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ player, change })
+            });
+            this.scores = await response.json();
+            this.render();
+        } catch (error) {
+            console.error('Error updating task:', error);
+        }
+    }
+
+    async deleteTask(taskIndex) {
+        if (confirm('Are you sure you want to delete this task?')) {
+            try {
+                const response = await fetch(`${this.apiBase}/scores/task/${taskIndex}`, {
+                    method: 'DELETE'
+                });
+                this.scores = await response.json();
+                this.render();
+            } catch (error) {
+                console.error('Error deleting task:', error);
+            }
+        }
     }
 
     render() {
@@ -222,63 +242,171 @@ class CompetitiveTrack {
         document.getElementById('nishScore').textContent = this.scores.player1Score;
         document.getElementById('jessScore').textContent = this.scores.player2Score;
 
+        // Render calendar
+        this.renderCalendar();
+
         // Render tasks
+        this.renderTasks();
+    }
+
+    renderCalendar() {
+        const calendarElement = document.getElementById('calendar');
+        calendarElement.innerHTML = '';
+
+        // Show last 7 days of history
+        for (let i = 0; i < 7; i++) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day empty';
+            
+            if (this.scores.dailyHistory[i]) {
+                const dayData = this.scores.dailyHistory[i];
+                const date = new Date(dayData.date);
+                const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                
+                dayElement.className = `calendar-day ${dayData.winner}`;
+                dayElement.innerHTML = `
+                    <div class="calendar-date">${monthDay}</div>
+                    <div class="calendar-score">${dayData.player1Score}-${dayData.player2Score}</div>
+                    <div>${dayName}</div>
+                `;
+            } else {
+                dayElement.textContent = '--';
+            }
+            
+            calendarElement.appendChild(dayElement);
+        }
+    }
+
+    renderTasks() {
         const container = document.getElementById('tasksContainer');
         container.innerHTML = '';
 
-        this.scores.categories.forEach((task, index) => {
+        this.scores.dailyTasks.forEach((task, index) => {
             const taskEl = document.createElement('div');
             taskEl.className = 'task';
             
-            const isCompletedByNish = task.completedBy === 1;
-            const isCompletedByJess = task.completedBy === 2;
-            const points = task.points || 1;
+            const canEditNish = this.currentUser === 'nish';
+            const canEditJess = this.currentUser === 'jess';
 
+            let taskContent = '';
+            
+            if (task.type === 'checkbox') {
+                taskContent = this.renderCheckboxTask(task, index, canEditNish, canEditJess);
+            } else {
+                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess);
+            }
+            
             taskEl.innerHTML = `
                 <div class="task-header">
                     <div class="task-name">${task.name}</div>
-                    <div class="task-points">${points} pt${points !== 1 ? 's' : ''}</div>
+                    <div class="task-type">${task.type}</div>
                 </div>
-                <div class="task-controls">
-                    <div class="task-player">
-                        <div class="task-player-label">Nish</div>
-                        <div class="checkbox-container">
-                            <div class="checkbox-btn nish ${isCompletedByNish ? 'checked' : ''} ${this.currentUser !== 'nish' ? 'disabled' : ''}" 
-                                 onclick="${this.currentUser === 'nish' ? `tracker.toggleTaskCompletion(${index}, 1)` : ''}">
-                                <i class="fas ${isCompletedByNish ? 'fa-check' : 'fa-plus'}"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="task-player">
-                        <div class="task-player-label">Jess</div>
-                        <div class="checkbox-container">
-                            <div class="checkbox-btn jess ${isCompletedByJess ? 'checked' : ''} ${this.currentUser !== 'jess' ? 'disabled' : ''}" 
-                                 onclick="${this.currentUser === 'jess' ? `tracker.toggleTaskCompletion(${index}, 2)` : ''}">
-                                <i class="fas ${isCompletedByJess ? 'fa-check' : 'fa-plus'}"></i>
-                            </div>
-                        </div>
-                    </div>
+                ${taskContent}
+                <div style="text-align: center; margin-top: 15px;">
+                    <button onclick="tracker.deleteTask(${index})" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px;">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
                 </div>
             `;
             container.appendChild(taskEl);
         });
 
-        // Show winner if there's a significant difference
-        this.showWinner();
+        // Add task button
+        const addTaskEl = document.createElement('div');
+        addTaskEl.className = 'task';
+        addTaskEl.style.textAlign = 'center';
+        addTaskEl.style.padding = '40px';
+        addTaskEl.innerHTML = `
+            <button id="addTaskBtn" class="btn btn-outline" style="font-size: 1.1em;">
+                <i class="fas fa-plus"></i> Add Custom Task
+            </button>
+        `;
+        container.appendChild(addTaskEl);
+
+        document.getElementById('addTaskBtn').addEventListener('click', () => {
+            this.showTaskModal();
+        });
     }
 
-    showWinner() {
-        const winnerSection = document.getElementById('winnerSection');
-        const winnerText = document.getElementById('winnerText');
-        const diff = Math.abs(this.scores.player1Score - this.scores.player2Score);
+    renderCheckboxTask(task, index, canEditNish, canEditJess) {
+        const nishChecked = task.player1Value > 0;
+        const jessChecked = task.player2Value > 0;
 
-        if (diff >= 10) {
-            const winner = this.scores.player1Score > this.scores.player2Score ? 'Nish' : 'Jess';
-            winnerText.textContent = `🏆 ${winner} is winning by ${diff} points! 🏆`;
-            winnerSection.classList.add('show');
-        } else {
-            winnerSection.classList.remove('show');
-        }
+        return `
+            <div class="task-controls">
+                <div class="task-player">
+                    <div class="task-player-label">Nish</div>
+                    <div class="checkbox-container">
+                        <div class="checkbox-btn nish ${nishChecked ? 'checked' : ''} ${!canEditNish ? 'disabled' : ''}" 
+                             onclick="${canEditNish ? `tracker.toggleCheckbox(${index}, 1)` : ''}">
+                            <i class="fas ${nishChecked ? 'fa-check' : 'fa-plus'}"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-player">
+                    <div class="task-player-label">Jess</div>
+                    <div class="checkbox-container">
+                        <div class="checkbox-btn jess ${jessChecked ? 'checked' : ''} ${!canEditJess ? 'disabled' : ''}" 
+                             onclick="${canEditJess ? `tracker.toggleCheckbox(${index}, 2)` : ''}">
+                            <i class="fas ${jessChecked ? 'fa-check' : 'fa-plus'}"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    renderNumberTask(task, index, canEditNish, canEditJess) {
+        const nishValue = task.player1Value;
+        const jessValue = task.player2Value;
+        const nishPercent = (nishValue / task.maxValue) * 100;
+        const jessPercent = (jessValue / task.maxValue) * 100;
+
+        return `
+            <div class="task-controls">
+                <div class="task-player">
+                    <div class="task-player-label">Nish</div>
+                    <div class="number-controls">
+                        <button class="number-btn ${!canEditNish || nishValue <= 0 ? 'disabled' : ''}" 
+                                onclick="${canEditNish && nishValue > 0 ? `tracker.updateNumberTask(${index}, 1, -1)` : ''}">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <div class="number-value">${nishValue}</div>
+                        <button class="number-btn ${!canEditNish || nishValue >= task.maxValue ? 'disabled' : ''}" 
+                                onclick="${canEditNish && nishValue < task.maxValue ? `tracker.updateNumberTask(${index}, 1, 1)` : ''}">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="number-max">max: ${task.maxValue}</div>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill nish" style="width: ${nishPercent}%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-player">
+                    <div class="task-player-label">Jess</div>
+                    <div class="number-controls">
+                        <button class="number-btn ${!canEditJess || jessValue <= 0 ? 'disabled' : ''}" 
+                                onclick="${canEditJess && jessValue > 0 ? `tracker.updateNumberTask(${index}, 2, -1)` : ''}">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <div class="number-value">${jessValue}</div>
+                        <button class="number-btn ${!canEditJess || jessValue >= task.maxValue ? 'disabled' : ''}" 
+                                onclick="${canEditJess && jessValue < task.maxValue ? `tracker.updateNumberTask(${index}, 2, 1)` : ''}">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="number-max">max: ${task.maxValue}</div>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill jess" style="width: ${jessPercent}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 }
 

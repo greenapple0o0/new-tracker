@@ -55,6 +55,12 @@
                 </div>
             </div>
             
+            <!-- Countdown Timer -->
+            <div class="countdown-section">
+                <div class="countdown-label">Next Reset In:</div>
+                <div class="countdown-timer" id="countdownTimer">24:00:00</div>
+            </div>
+
             <div class="score-header">
                 <div class="player nish-player">
                     <div class="player-info">
@@ -88,21 +94,22 @@
             </div>
         </header>
 
+        <!-- 7-Day Calendar -->
+        <section class="calendar-section">
+            <h3>7-Day History</h3>
+            <div class="calendar" id="calendar">
+                <!-- Calendar days will be populated by JavaScript -->
+            </div>
+        </section>
+
         <div class="controls">
-            <button id="addCategory" class="btn btn-primary">
-                <i class="fas fa-plus"></i> Add Task
-            </button>
-            <button id="resetScores" class="btn btn-outline">
-                <i class="fas fa-redo"></i> Reset All
+            <button id="addTask" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Custom Task
             </button>
         </div>
 
         <div class="tasks-container" id="tasksContainer">
             <!-- Tasks will be added here dynamically -->
-        </div>
-
-        <div class="winner-section" id="winnerSection">
-            <h2 id="winnerText"></h2>
         </div>
     </div>
 
@@ -112,7 +119,16 @@
             <span class="close">&times;</span>
             <h3>Add New Task</h3>
             <input type="text" id="newTaskName" placeholder="Enter task description">
-            <input type="number" id="newTaskPoints" placeholder="Points value" value="1" min="1" max="10">
+            <select id="newTaskType" class="task-type-select">
+                <option value="checkbox">Checkbox (1 point)</option>
+                <option value="water">Water (cups)</option>
+                <option value="study">Study (hours)</option>
+                <option value="workout">Workout (hours)</option>
+            </select>
+            <div id="maxValueContainer" style="display: none;">
+                <label>Max Value:</label>
+                <input type="number" id="newTaskMaxValue" value="8" min="1" max="24">
+            </div>
             <button id="saveTask" class="btn btn-primary">Save Task</button>
         </div>
     </div>
