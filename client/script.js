@@ -4,6 +4,7 @@ class CompetitiveTrack {
         this.scores = null;
         this.currentUser = null;
         this.countdownInterval = null;
+        this.currentQuickAddTask = null;
         
         this.init();
     }
@@ -51,14 +52,24 @@ class CompetitiveTrack {
         });
 
         document.getElementById('newTaskType').addEventListener('change', (e) => {
-            const maxValueContainer = document.getElementById('maxValueContainer');
-            maxValueContainer.style.display = e.target.value === 'checkbox' ? 'none' : 'block';
+            const numberConfig = document.getElementById('numberTaskConfig');
+            numberConfig.style.display = e.target.value === 'number' ? 'block' : 'none';
         });
 
         document.getElementById('newTaskName').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 this.saveNewTask();
             }
+        });
+
+        // Quick add modal
+        const quickAddModal = document.getElementById('quickAddModal');
+        document.querySelector('#quickAddModal .close').addEventListener('click', () => {
+            quickAddModal.style.display = 'none';
+        });
+
+        document.getElementById('saveQuickAdd').addEventListener('click', () => {
+            this.saveQuickAdd();
         });
 
         // Rename modal
@@ -80,6 +91,7 @@ class CompetitiveTrack {
         // Close modals when clicking outside
         window.addEventListener('click', (e) => {
             if (e.target === taskModal) taskModal.style.display = 'none';
+            if (e.target === quickAddModal) quickAddModal.style.display = 'none';
             if (e.target === renameModal) renameModal.style.display = 'none';
         });
     }
@@ -189,18 +201,34 @@ class CompetitiveTrack {
         document.getElementById('taskModal').style.display = 'block';
         document.getElementById('newTaskName').value = '';
         document.getElementById('newTaskType').value = 'checkbox';
-        document.getElementById('maxValueContainer').style.display = 'none';
+        document.getElementById('numberTaskConfig').style.display = 'none';
         document.getElementById('newTaskName').focus();
     }
 
     async saveNewTask() {
         const name = document.getElementById('newTaskName').value.trim();
         const type = document.getElementById('newTaskType').value;
-        const maxValue = type !== 'checkbox' ? parseInt(document.getElementById('newTaskMaxValue').value) : 1;
 
         if (!name) {
             alert('Please enter a task name!');
             return;
+        }
+
+        let taskData = { name, type };
+
+        if (type === 'number') {
+            const pointsPerUnit = parseInt(document.getElementById('pointsPerUnit').value) || 1;
+            const unitsPerClick = parseInt(document.getElementById('unitsPerClick').value) || 1;
+            const maxUnits = parseInt(document.getElementById('maxUnits').value) || 8;
+            const unitLabel = document.getElementById('unitLabel').value.trim() || 'units';
+
+            taskData = {
+                ...taskData,
+                pointsPerUnit,
+                unitsPerClick,
+                maxValue: maxUnits,
+                unitLabel
+            };
         }
 
         try {
@@ -209,7 +237,7 @@ class CompetitiveTrack {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ name, type, maxValue })
+                body: JSON.stringify(taskData)
             });
             
             if (!response.ok) {
@@ -226,12 +254,144 @@ class CompetitiveTrack {
         }
     }
 
+    showQuickAddModal(taskIndex, player) {
+        this.currentQuickAddTask = { taskIndex, player };
+        const task = this.scores.dailyTasks[taskIndex];
+        const playerName = player === 1 ? 'Nish' : 'Jess';
+        
+        document.getElementById('quickAddTitle').textContent = `Add ${task.name} - ${playerName}`;
+        
+        let content = '';
+        if (task.type === 'water') {
+            content = `
+                <p>How much water did you drink?</p>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0;">
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="250">250mL</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="500">500mL</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="750">750mL</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="1000">1L</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="1500">1.5L</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="2000">2L</button>
+                </div>
+                <div style="margin-top: 15px;">
+                    <label>Custom amount (mL):</label>
+                    <input type="number" id="customWaterAmount" placeholder="Enter custom amount" min="0" max="5000">
+                </div>
+            `;
+        } else if (task.type === 'workout') {
+            content = `
+                <p>How long did you workout?</p>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 20px 0;">
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="0.5">30 min</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="1">1 hour</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="1.5">1.5 hours</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="2">2 hours</button>
+                </div>
+                <div style="margin-top: 15px;">
+                    <label>Custom duration (hours):</label>
+                    <input type="number" id="customWorkoutAmount" placeholder="Enter custom hours" min="0" max="24" step="0.5">
+                </div>
+            `;
+        } else if (task.type === 'study') {
+            content = `
+                <p>How long did you study?</p>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 20px 0;">
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="1">1 hour</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="2">2 hours</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="3">3 hours</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="4">4 hours</button>
+                </div>
+                <div style="margin-top: 15px;">
+                    <label>Custom duration (hours):</label>
+                    <input type="number" id="customStudyAmount" placeholder="Enter custom hours" min="0" max="24" step="0.5">
+                </div>
+            `;
+        } else if (task.config && task.config.unitsPerClick) {
+            content = `
+                <p>Add ${task.name}</p>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0;">
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="${task.config.unitsPerClick}">+${task.config.unitsPerClick}</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="${task.config.unitsPerClick * 2}">+${task.config.unitsPerClick * 2}</button>
+                    <button type="button" class="btn btn-outline quick-add-amount" data-amount="${task.config.unitsPerClick * 5}">+${task.config.unitsPerClick * 5}</button>
+                </div>
+                <div style="margin-top: 15px;">
+                    <label>Custom amount:</label>
+                    <input type="number" id="customNumberAmount" placeholder="Enter custom amount" min="0" max="${task.maxValue}">
+                </div>
+            `;
+        }
+
+        document.getElementById('quickAddContent').innerHTML = content;
+        
+        // Add event listeners to quick add buttons
+        setTimeout(() => {
+            document.querySelectorAll('.quick-add-amount').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const amount = parseFloat(e.target.dataset.amount);
+                    this.performQuickAdd(amount);
+                });
+            });
+        }, 100);
+
+        document.getElementById('quickAddModal').style.display = 'block';
+    }
+
+    performQuickAdd(amount) {
+        if (!this.currentQuickAddTask) return;
+        
+        const { taskIndex, player } = this.currentQuickAddTask;
+        const task = this.scores.dailyTasks[taskIndex];
+        
+        if (task.type === 'water') {
+            this.updateWaterTask(taskIndex, player, amount);
+        } else if (task.type === 'workout') {
+            this.updateWorkoutTask(taskIndex, player, amount);
+        } else if (task.type === 'study') {
+            this.updateNumberTask(taskIndex, player, amount);
+        } else if (task.config) {
+            this.updateNumberTask(taskIndex, player, amount);
+        }
+        
+        document.getElementById('quickAddModal').style.display = 'none';
+    }
+
+    async saveQuickAdd() {
+        if (!this.currentQuickAddTask) return;
+        
+        const { taskIndex, player } = this.currentQuickAddTask;
+        const task = this.scores.dailyTasks[taskIndex];
+        let amount = 0;
+
+        if (task.type === 'water') {
+            amount = parseInt(document.getElementById('customWaterAmount').value) || 0;
+            if (amount > 0) {
+                await this.updateWaterTask(taskIndex, player, amount);
+            }
+        } else if (task.type === 'workout') {
+            amount = parseFloat(document.getElementById('customWorkoutAmount').value) || 0;
+            if (amount > 0) {
+                await this.updateWorkoutTask(taskIndex, player, amount);
+            }
+        } else if (task.type === 'study') {
+            amount = parseFloat(document.getElementById('customStudyAmount').value) || 0;
+            if (amount > 0) {
+                await this.updateNumberTask(taskIndex, player, amount);
+            }
+        } else if (task.config) {
+            amount = parseInt(document.getElementById('customNumberAmount').value) || 0;
+            if (amount > 0) {
+                await this.updateNumberTask(taskIndex, player, amount);
+            }
+        }
+
+        document.getElementById('quickAddModal').style.display = 'none';
+    }
+
     // Task management methods
     showRenameModal(taskIndex) {
         this.currentRenameTaskIndex = taskIndex;
         const task = this.scores.dailyTasks[taskIndex];
         const modal = document.getElementById('renameModal');
-        document.getElementById('renameModalTitle').textContent = `Rename Task`;
         document.getElementById('newTaskNameInput').value = task.name;
         modal.style.display = 'block';
         document.getElementById('newTaskNameInput').focus();
@@ -310,12 +470,52 @@ class CompetitiveTrack {
         }
     }
 
+    async updateWaterTask(taskIndex, player, amount) {
+        if (this.currentUser !== (player === 1 ? 'nish' : 'jess')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiBase}/scores/task/water/increment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ player, amount })
+            });
+            this.scores = await response.json();
+            this.render();
+        } catch (error) {
+            console.error('Error updating water:', error);
+        }
+    }
+
+    async updateWorkoutTask(taskIndex, player, hours) {
+        if (this.currentUser !== (player === 1 ? 'nish' : 'jess')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiBase}/scores/task/workout/increment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ player, hours })
+            });
+            this.scores = await response.json();
+            this.render();
+        } catch (error) {
+            console.error('Error updating workout:', error);
+        }
+    }
+
     async deleteTask(taskIndex) {
         const task = this.scores.dailyTasks[taskIndex];
         
         // Check if this is a default task
-        const defaultTasks = ['Water Drank (mL)', 'Studied (hours)', 'Workout Done (hours)'];
-        if (defaultTasks.includes(task.name)) {
+        const defaultTasks = ['Water Drank', 'Studied', 'Workout Done'];
+        if (defaultTasks.some(defaultTask => task.name.includes(defaultTask))) {
             alert('Default tasks cannot be deleted.');
             return;
         }
@@ -382,35 +582,31 @@ class CompetitiveTrack {
             
             const canEditNish = this.currentUser === 'nish';
             const canEditJess = this.currentUser === 'jess';
-            const isDefault = ['Water Drank (mL)', 'Studied (hours)', 'Workout Done (hours)'].includes(task.name);
-            const isWaterTask = task.type === 'water';
-            const isWorkoutTask = task.type === 'workout';
-            const isStudyTask = task.type === 'study';
+            const isDefault = ['Water Drank', 'Studied', 'Workout Done'].some(defaultTask => task.name.includes(defaultTask));
 
             let taskContent = '';
             
             if (task.type === 'checkbox') {
                 taskContent = this.renderCheckboxTask(task, index, canEditNish, canEditJess);
             } else {
-                // Use +/- buttons for ALL number tasks (water, study, workout)
-                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask, isStudyTask);
+                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess);
             }
             
             // Edit button for custom tasks, delete button for all non-default tasks
             const editButton = isDefault ? '' : `
-                <button onclick="tracker.showRenameModal(${index})" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px;">
+                <button onclick="tracker.showRenameModal(${index})" class="btn btn-outline btn-sm">
                     <i class="fas fa-edit"></i> Rename
                 </button>
             `;
             
             const deleteButton = isDefault ? '' : `
-                <button onclick="tracker.deleteTask(${index})" class="btn btn-outline" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;">
+                <button onclick="tracker.deleteTask(${index})" class="btn btn-outline btn-sm">
                     <i class="fas fa-trash"></i> Delete
                 </button>
             `;
 
             const actionButtons = isDefault ? '' : `
-                <div style="text-align: center; margin-top: 15px;">
+                <div style="text-align: center; margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
                     ${editButton}
                     ${deleteButton}
                 </div>
@@ -473,40 +669,55 @@ class CompetitiveTrack {
         `;
     }
 
-    renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask, isStudyTask) {
+    renderNumberTask(task, index, canEditNish, canEditJess) {
         const nishValue = task.player1Value;
         const jessValue = task.player2Value;
         const nishPercent = (nishValue / task.maxValue) * 100;
         const jessPercent = (jessValue / task.maxValue) * 100;
 
         let valueSuffix = '';
-        let maxLabel = `max: ${task.maxValue}`;
+        let maxLabel = '';
         let pointsInfo = '';
-        let incrementValue = 1;
+        let showQuickAdd = false;
 
-        if (isWaterTask) {
+        if (task.type === 'water') {
             valueSuffix = 'mL';
             maxLabel = `max: ${task.maxValue}mL`;
             pointsInfo = '500mL = 1 point';
-            incrementValue = 500; // 500mL per click
-        } else if (isWorkoutTask) {
+            showQuickAdd = true;
+        } else if (task.type === 'workout') {
             valueSuffix = ' hours';
+            maxLabel = `max: ${task.maxValue} hours`;
             pointsInfo = '30 minutes = 1 point';
-            incrementValue = 0.5; // 30 minutes per click
-        } else {
+            showQuickAdd = true;
+        } else if (task.type === 'study') {
             valueSuffix = ' hours';
             maxLabel = `max: ${task.maxValue} hours`;
             pointsInfo = '1 hour = 1 point';
-            incrementValue = 1; // 1 hour per click
+            showQuickAdd = true;
+        } else if (task.config) {
+            valueSuffix = ` ${task.config.unitLabel || 'units'}`;
+            maxLabel = `max: ${task.maxValue} ${task.config.unitLabel || 'units'}`;
+            pointsInfo = `${task.config.unitsPerClick || 1} ${task.config.unitLabel || 'unit'} = ${task.config.pointsPerUnit || 1} point${task.config.pointsPerUnit > 1 ? 's' : ''}`;
+            showQuickAdd = true;
         }
 
         // Calculate display values
-        const nishDisplayValue = isWaterTask ? Math.round(nishValue) : isWorkoutTask ? nishValue.toFixed(1) : nishValue;
-        const jessDisplayValue = isWaterTask ? Math.round(jessValue) : isWorkoutTask ? jessValue.toFixed(1) : jessValue;
+        const nishDisplayValue = task.type === 'water' ? Math.round(nishValue) : 
+                               task.type === 'workout' ? nishValue.toFixed(1) : nishValue;
+        const jessDisplayValue = task.type === 'water' ? Math.round(jessValue) : 
+                                task.type === 'workout' ? jessValue.toFixed(1) : jessValue;
 
-        // Calculate points
-        const nishPoints = isWaterTask ? Math.floor(nishValue / 500) : isWorkoutTask ? Math.floor((nishValue * 60) / 30) : Math.floor(nishValue);
-        const jessPoints = isWaterTask ? Math.floor(jessValue / 500) : isWorkoutTask ? Math.floor((jessValue * 60) / 30) : Math.floor(jessValue);
+        const quickAddButtons = showQuickAdd ? `
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button class="btn btn-outline quick-add-btn" onclick="tracker.showQuickAddModal(${index}, 1)" ${!canEditNish ? 'disabled' : ''}>
+                    <i class="fas fa-bolt"></i> Quick Add
+                </button>
+                <button class="btn btn-outline quick-add-btn" onclick="tracker.showQuickAddModal(${index}, 2)" ${!canEditJess ? 'disabled' : ''}>
+                    <i class="fas fa-bolt"></i> Quick Add
+                </button>
+            </div>
+        ` : '';
 
         return `
             <div class="task-controls">
@@ -514,19 +725,16 @@ class CompetitiveTrack {
                     <div class="task-player-label">Nish</div>
                     <div class="number-controls">
                         <button class="number-btn ${!canEditNish || nishValue <= 0 ? 'disabled' : ''}" 
-                                onclick="${canEditNish && nishValue > 0 ? `tracker.updateNumberTask(${index}, 1, -${incrementValue})` : ''}">
+                                onclick="${canEditNish && nishValue > 0 ? `tracker.updateNumberTask(${index}, 1, -1)` : ''}">
                             <i class="fas fa-minus"></i>
                         </button>
                         <div class="number-value">${nishDisplayValue}${valueSuffix}</div>
                         <button class="number-btn ${!canEditNish || nishValue >= task.maxValue ? 'disabled' : ''}" 
-                                onclick="${canEditNish && nishValue < task.maxValue ? `tracker.updateNumberTask(${index}, 1, ${incrementValue})` : ''}">
+                                onclick="${canEditNish && nishValue < task.maxValue ? `tracker.updateNumberTask(${index}, 1, 1)` : ''}">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
                     <div class="number-max">${maxLabel}</div>
-                    <div class="points-info" style="text-align: center; font-size: 0.8em; color: #666; margin-top: 5px;">
-                        ${nishPoints} points
-                    </div>
                     <div class="progress-container">
                         <div class="progress-bar">
                             <div class="progress-fill nish" style="width: ${nishPercent}%"></div>
@@ -537,19 +745,16 @@ class CompetitiveTrack {
                     <div class="task-player-label">Jess</div>
                     <div class="number-controls">
                         <button class="number-btn ${!canEditJess || jessValue <= 0 ? 'disabled' : ''}" 
-                                onclick="${canEditJess && jessValue > 0 ? `tracker.updateNumberTask(${index}, 2, -${incrementValue})` : ''}">
+                                onclick="${canEditJess && jessValue > 0 ? `tracker.updateNumberTask(${index}, 2, -1)` : ''}">
                             <i class="fas fa-minus"></i>
                         </button>
                         <div class="number-value">${jessDisplayValue}${valueSuffix}</div>
                         <button class="number-btn ${!canEditJess || jessValue >= task.maxValue ? 'disabled' : ''}" 
-                                onclick="${canEditJess && jessValue < task.maxValue ? `tracker.updateNumberTask(${index}, 2, ${incrementValue})` : ''}">
+                                onclick="${canEditJess && jessValue < task.maxValue ? `tracker.updateNumberTask(${index}, 2, 1)` : ''}">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
                     <div class="number-max">${maxLabel}</div>
-                    <div class="points-info" style="text-align: center; font-size: 0.8em; color: #666; margin-top: 5px;">
-                        ${jessPoints} points
-                    </div>
                     <div class="progress-container">
                         <div class="progress-bar">
                             <div class="progress-fill jess" style="width: ${jessPercent}%"></div>
@@ -560,6 +765,7 @@ class CompetitiveTrack {
             <div style="font-size: 0.8em; color: #666; text-align: center; margin-top: 10px;">
                 ${pointsInfo}
             </div>
+            ${quickAddButtons}
         `;
     }
 }

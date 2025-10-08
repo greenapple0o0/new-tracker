@@ -15,11 +15,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client')));
 
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI;
-if (!MONGODB_URI) {
-  console.error('❌ MONGODB_URI is not defined in environment variables');
-  process.exit(1);
-}
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/competitive-track';
 
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
@@ -31,7 +27,7 @@ mongoose.connect(MONGODB_URI, {
   process.exit(1);
 });
 
-// Updated Schema with Daily History
+// Updated Schema with better task configuration
 const scoreSchema = new mongoose.Schema({
   player1: { type: String, default: 'Nish' },
   player2: { type: String, default: 'Jess' },
@@ -39,10 +35,15 @@ const scoreSchema = new mongoose.Schema({
   player2Score: { type: Number, default: 0 },
   dailyTasks: [{
     name: String,
-    type: { type: String, enum: ['checkbox', 'water', 'study', 'workout'], default: 'checkbox' },
+    type: { type: String, enum: ['checkbox', 'water', 'study', 'workout', 'number'], default: 'checkbox' },
     maxValue: { type: Number, default: 1 },
     player1Value: { type: Number, default: 0 },
-    player2Value: { type: Number, default: 0 }
+    player2Value: { type: Number, default: 0 },
+    config: {
+      pointsPerUnit: { type: Number, default: 1 },
+      unitsPerClick: { type: Number, default: 1 },
+      unitLabel: { type: String, default: 'units' }
+    }
   }],
   dailyHistory: [{
     date: String,
@@ -61,45 +62,41 @@ const scoreSchema = new mongoose.Schema({
 
 const Score = mongoose.model('Score', scoreSchema);
 
-// Updated default tasks
+// Updated default tasks with better configuration
 const DEFAULT_TASKS = [
-  { name: 'Water Drank (mL)', type: 'water', maxValue: 3000, player1Value: 0, player2Value: 0 },
-  { name: 'Studied (hours)', type: 'study', maxValue: 8, player1Value: 0, player2Value: 0 },
-  { name: 'Workout Done (hours)', type: 'workout', maxValue: 2, player1Value: 0, player2Value: 0 }
+  { 
+    name: 'Water Drank', 
+    type: 'water', 
+    maxValue: 3000, 
+    player1Value: 0, 
+    player2Value: 0 
+  },
+  { 
+    name: 'Studied', 
+    type: 'study', 
+    maxValue: 8, 
+    player1Value: 0, 
+    player2Value: 0 
+  },
+  { 
+    name: 'Workout Done', 
+    type: 'workout', 
+    maxValue: 2, 
+    player1Value: 0, 
+    player2Value: 0 
+  }
 ];
 
 // Function to ensure default tasks exist
 const ensureDefaultTasks = async (scores) => {
   let needsUpdate = false;
   
-  // Remove any tasks that are not in the new default list
-  const tasksToRemove = [];
-  scores.dailyTasks.forEach((task, index) => {
-    const isDefaultInNewList = DEFAULT_TASKS.some(defaultTask => defaultTask.name === task.name);
-    if (!isDefaultInNewList && ['Water Drank (cups)', 'Morning Routine', 'Healthy Eating', 'No Sugar', 'Meditation'].includes(task.name)) {
-      tasksToRemove.push(index);
-    }
-  });
-  
-  // Remove tasks in reverse order to avoid index issues
-  for (let i = tasksToRemove.length - 1; i >= 0; i--) {
-    scores.dailyTasks.splice(tasksToRemove[i], 1);
-    needsUpdate = true;
-  }
-  
-  // Check if any default tasks are missing
   DEFAULT_TASKS.forEach(defaultTask => {
     const existingTask = scores.dailyTasks.find(task => task.name === defaultTask.name);
     if (!existingTask) {
       scores.dailyTasks.push(defaultTask);
       needsUpdate = true;
       console.log(`✅ Added default task: ${defaultTask.name}`);
-    } else if (defaultTask.name === 'Water Drank (mL)' && existingTask.maxValue !== 3000) {
-      // Update water task to 3000mL if it exists with wrong maxValue
-      existingTask.maxValue = 3000;
-      existingTask.name = 'Water Drank (mL)';
-      needsUpdate = true;
-      console.log(`✅ Updated water task to 3000mL`);
     }
   });
 
@@ -142,6 +139,7 @@ const saveDailyHistory = async (scores) => {
       tasksCompleted: tasksCompleted
     });
     
+    // Keep only last 7 days
     scores.dailyHistory = scores.dailyHistory.slice(0, 7);
   }
 };
@@ -258,7 +256,7 @@ app.post('/api/scores/task/:taskIndex/toggle', async (req, res) => {
     
     // Toggle checkbox (0 or 1)
     const newValue = task[playerKey] === 0 ? 1 : 0;
-    const pointChange = newValue - task[playerKey]; // This should be 1 or -1
+    const pointChange = newValue - task[playerKey];
     
     task[playerKey] = newValue;
     scores[scoreKey] = Math.max(0, scores[scoreKey] + pointChange);
@@ -278,7 +276,7 @@ app.post('/api/scores/task/:taskIndex/toggle', async (req, res) => {
   }
 });
 
-// Increment/decrement number tasks (for study and generic number tasks)
+// Increment/decrement number tasks
 app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
   try {
     const { taskIndex } = req.params;
@@ -314,17 +312,25 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
     
     if (change > 0) {
       // Increment
-      const potentialNewValue = task[playerKey] + 1;
+      const potentialNewValue = task.type === 'number' && task.config ? 
+        task[playerKey] + (change * (task.config.unitsPerClick || 1)) :
+        task[playerKey] + change;
+      
       if (potentialNewValue <= task.maxValue) {
         newValue = potentialNewValue;
-        pointChange = 1;
+        pointChange = task.type === 'number' && task.config ? 
+          change * (task.config.pointsPerUnit || 1) : change;
       }
     } else if (change < 0) {
       // Decrement
-      const potentialNewValue = task[playerKey] - 1;
+      const potentialNewValue = task.type === 'number' && task.config ? 
+        task[playerKey] + (change * (task.config.unitsPerClick || 1)) :
+        task[playerKey] + change;
+      
       if (potentialNewValue >= 0) {
         newValue = potentialNewValue;
-        pointChange = -1;
+        pointChange = task.type === 'number' && task.config ? 
+          change * (task.config.pointsPerUnit || 1) : change;
       }
     }
     
@@ -349,7 +355,7 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
   }
 });
 
-// Incremental water update endpoint - SIMPLIFIED VERSION
+// Water update endpoint
 app.post('/api/scores/task/water/increment', async (req, res) => {
   try {
     const { player, amount } = req.body;
@@ -366,10 +372,9 @@ app.post('/api/scores/task/water/increment', async (req, res) => {
     scores = await ensureDefaultTasks(scores);
     scores = await checkAndResetScores(scores);
     
-    // Find water task by type only
+    // Find water task
     const waterTask = scores.dailyTasks.find(task => task.type === 'water');
     if (!waterTask) {
-      console.log('Available tasks:', scores.dailyTasks.map(t => ({ name: t.name, type: t.type })));
       return res.status(404).json({ error: 'Water task not found' });
     }
     
@@ -403,10 +408,10 @@ app.post('/api/scores/task/water/increment', async (req, res) => {
   }
 });
 
-// Incremental workout update endpoint - SIMPLIFIED VERSION
+// Workout update endpoint
 app.post('/api/scores/task/workout/increment', async (req, res) => {
   try {
-    const { player, minutes } = req.body;
+    const { player, hours } = req.body;
     
     if (![1, 2].includes(player)) {
       return res.status(400).json({ error: 'Invalid player. Use 1 for Nish or 2 for Jess' });
@@ -420,24 +425,21 @@ app.post('/api/scores/task/workout/increment', async (req, res) => {
     scores = await ensureDefaultTasks(scores);
     scores = await checkAndResetScores(scores);
     
-    // Find workout task by type only
+    // Find workout task
     const workoutTask = scores.dailyTasks.find(task => task.type === 'workout');
     if (!workoutTask) {
-      console.log('Available tasks:', scores.dailyTasks.map(t => ({ name: t.name, type: t.type })));
       return res.status(404).json({ error: 'Workout task not found' });
     }
     
     const playerKey = player === 1 ? 'player1Value' : 'player2Value';
     const scoreKey = player === 1 ? 'player1Score' : 'player2Score';
     
-    // Convert current value to minutes, add new minutes, then convert back to hours
-    const currentMinutes = workoutTask[playerKey] * 60;
-    const newTotalMinutes = Math.max(0, Math.min(currentMinutes + minutes, workoutTask.maxValue * 60));
-    const newValue = newTotalMinutes / 60;
+    const oldValue = workoutTask[playerKey];
+    const newValue = Math.max(0, Math.min(oldValue + hours, workoutTask.maxValue));
     
     // Calculate points: 30 minutes = 1 point
-    const oldPoints = Math.floor(currentMinutes / 30);
-    const newPoints = Math.floor(newTotalMinutes / 30);
+    const oldPoints = Math.floor(oldValue * 2); // 0.5 hours = 1 point
+    const newPoints = Math.floor(newValue * 2);
     const pointChange = newPoints - oldPoints;
     
     workoutTask[playerKey] = newValue;
@@ -515,7 +517,7 @@ app.put('/api/scores/task/:taskIndex/rename', async (req, res) => {
 // Add custom task
 app.post('/api/scores/task', async (req, res) => {
   try {
-    const { name, type, maxValue } = req.body;
+    const { name, type, maxValue, pointsPerUnit, unitsPerClick, unitLabel } = req.body;
     
     if (!name || name.trim() === '') {
       return res.status(400).json({ error: 'Task name is required' });
@@ -534,13 +536,24 @@ app.post('/api/scores/task', async (req, res) => {
       return res.status(400).json({ error: 'Task already exists' });
     }
     
-    scores.dailyTasks.push({
+    const newTask = {
       name: name.trim(),
       type: type || 'checkbox',
       maxValue: maxValue || 1,
       player1Value: 0,
       player2Value: 0
-    });
+    };
+    
+    // Add configuration for number tasks
+    if (type === 'number') {
+      newTask.config = {
+        pointsPerUnit: pointsPerUnit || 1,
+        unitsPerClick: unitsPerClick || 1,
+        unitLabel: unitLabel || 'units'
+      };
+    }
+    
+    scores.dailyTasks.push(newTask);
     
     scores.lastUpdated = new Date();
     await scores.save();
@@ -583,8 +596,29 @@ app.delete('/api/scores/task/:taskIndex', async (req, res) => {
       return res.status(400).json({ error: 'Cannot delete default tasks' });
     }
     
-    scores.player1Score = Math.max(0, scores.player1Score - task.player1Value);
-    scores.player2Score = Math.max(0, scores.player2Score - task.player2Value);
+    // Remove points associated with this task
+    if (task.type === 'checkbox') {
+      scores.player1Score = Math.max(0, scores.player1Score - task.player1Value);
+      scores.player2Score = Math.max(0, scores.player2Score - task.player2Value);
+    } else if (task.type === 'water') {
+      const nishPoints = Math.floor(task.player1Value / 500);
+      const jessPoints = Math.floor(task.player2Value / 500);
+      scores.player1Score = Math.max(0, scores.player1Score - nishPoints);
+      scores.player2Score = Math.max(0, scores.player2Score - jessPoints);
+    } else if (task.type === 'workout') {
+      const nishPoints = Math.floor(task.player1Value * 2);
+      const jessPoints = Math.floor(task.player2Value * 2);
+      scores.player1Score = Math.max(0, scores.player1Score - nishPoints);
+      scores.player2Score = Math.max(0, scores.player2Score - jessPoints);
+    } else if (task.type === 'study') {
+      scores.player1Score = Math.max(0, scores.player1Score - task.player1Value);
+      scores.player2Score = Math.max(0, scores.player2Score - task.player2Value);
+    } else if (task.type === 'number' && task.config) {
+      const nishPoints = Math.floor(task.player1Value * task.config.pointsPerUnit);
+      const jessPoints = Math.floor(task.player2Value * task.config.pointsPerUnit);
+      scores.player1Score = Math.max(0, scores.player1Score - nishPoints);
+      scores.player2Score = Math.max(0, scores.player2Score - jessPoints);
+    }
     
     scores.dailyTasks.splice(index, 1);
     
@@ -619,6 +653,6 @@ app.listen(PORT, () => {
   console.log(`📁 Serving frontend from: ${path.join(__dirname, '../client')}`);
   console.log(`👥 Players: Nish vs Jess`);
   console.log(`🔄 Auto-reset: Every 24 hours`);
-  console.log(`📊 Default tasks: Water (3000mL), Study, Workout`);
+  console.log(`📊 Default tasks: Water, Study, Workout`);
   console.log(`📅 7-day history calendar`);
 });

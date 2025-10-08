@@ -300,6 +300,11 @@ header {
     color: var(--primary);
 }
 
+.btn-sm {
+    padding: 8px 16px;
+    font-size: 0.85em;
+}
+
 /* Tasks Container */
 .tasks-container {
     padding: 30px;
@@ -401,7 +406,7 @@ header {
     color: var(--jess-color);
 }
 
-/* Number Tasks (Water, Study, Workout) */
+/* Number Tasks */
 .number-controls {
     display: flex;
     align-items: center;
@@ -446,6 +451,11 @@ header {
     color: var(--gray);
     text-align: center;
     margin-top: 5px;
+}
+
+.quick-add-btn {
+    margin-top: 10px;
+    width: 100%;
 }
 
 /* Progress Bar */
