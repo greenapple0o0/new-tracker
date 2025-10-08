@@ -336,23 +336,30 @@ class CompetitiveTrack {
         document.getElementById('quickAddModal').style.display = 'block';
     }
 
-    performQuickAdd(amount) {
+    async performQuickAdd(amount) {
         if (!this.currentQuickAddTask) return;
         
         const { taskIndex, player } = this.currentQuickAddTask;
         const task = this.scores.dailyTasks[taskIndex];
         
-        if (task.type === 'water') {
-            this.updateWaterTask(taskIndex, player, amount);
-        } else if (task.type === 'workout') {
-            this.updateWorkoutTask(taskIndex, player, amount);
-        } else if (task.type === 'study') {
-            this.updateNumberTask(taskIndex, player, amount);
-        } else if (task.config) {
-            this.updateNumberTask(taskIndex, player, amount);
+        try {
+            if (task.type === 'water') {
+                await this.updateWaterTask(taskIndex, player, amount);
+            } else if (task.type === 'workout') {
+                await this.updateWorkoutTask(taskIndex, player, amount);
+            } else if (task.type === 'study') {
+                await this.updateNumberTask(taskIndex, player, amount);
+            } else if (task.config) {
+                await this.updateNumberTask(taskIndex, player, amount);
+            }
+            
+            document.getElementById('quickAddModal').style.display = 'none';
+            await this.loadScores(); // Reload scores to get updated data
+            this.render();
+        } catch (error) {
+            console.error('Error in quick add:', error);
+            alert('Error adding: ' + error.message);
         }
-        
-        document.getElementById('quickAddModal').style.display = 'none';
     }
 
     async saveQuickAdd() {
@@ -362,29 +369,36 @@ class CompetitiveTrack {
         const task = this.scores.dailyTasks[taskIndex];
         let amount = 0;
 
-        if (task.type === 'water') {
-            amount = parseInt(document.getElementById('customWaterAmount').value) || 0;
-            if (amount > 0) {
-                await this.updateWaterTask(taskIndex, player, amount);
+        try {
+            if (task.type === 'water') {
+                amount = parseInt(document.getElementById('customWaterAmount').value) || 0;
+                if (amount > 0) {
+                    await this.updateWaterTask(taskIndex, player, amount);
+                }
+            } else if (task.type === 'workout') {
+                amount = parseFloat(document.getElementById('customWorkoutAmount').value) || 0;
+                if (amount > 0) {
+                    await this.updateWorkoutTask(taskIndex, player, amount);
+                }
+            } else if (task.type === 'study') {
+                amount = parseFloat(document.getElementById('customStudyAmount').value) || 0;
+                if (amount > 0) {
+                    await this.updateNumberTask(taskIndex, player, amount);
+                }
+            } else if (task.config) {
+                amount = parseInt(document.getElementById('customNumberAmount').value) || 0;
+                if (amount > 0) {
+                    await this.updateNumberTask(taskIndex, player, amount);
+                }
             }
-        } else if (task.type === 'workout') {
-            amount = parseFloat(document.getElementById('customWorkoutAmount').value) || 0;
-            if (amount > 0) {
-                await this.updateWorkoutTask(taskIndex, player, amount);
-            }
-        } else if (task.type === 'study') {
-            amount = parseFloat(document.getElementById('customStudyAmount').value) || 0;
-            if (amount > 0) {
-                await this.updateNumberTask(taskIndex, player, amount);
-            }
-        } else if (task.config) {
-            amount = parseInt(document.getElementById('customNumberAmount').value) || 0;
-            if (amount > 0) {
-                await this.updateNumberTask(taskIndex, player, amount);
-            }
-        }
 
-        document.getElementById('quickAddModal').style.display = 'none';
+            document.getElementById('quickAddModal').style.display = 'none';
+            await this.loadScores(); // Reload scores to get updated data
+            this.render();
+        } catch (error) {
+            console.error('Error in quick add:', error);
+            alert('Error adding: ' + error.message);
+        }
     }
 
     // Task management methods
@@ -483,10 +497,16 @@ class CompetitiveTrack {
                 },
                 body: JSON.stringify({ player, amount })
             });
-            this.scores = await response.json();
-            this.render();
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update water');
+            }
+            
+            return await response.json();
         } catch (error) {
             console.error('Error updating water:', error);
+            throw error;
         }
     }
 
@@ -503,10 +523,16 @@ class CompetitiveTrack {
                 },
                 body: JSON.stringify({ player, hours })
             });
-            this.scores = await response.json();
-            this.render();
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update workout');
+            }
+            
+            return await response.json();
         } catch (error) {
             console.error('Error updating workout:', error);
+            throw error;
         }
     }
 
@@ -679,27 +705,37 @@ class CompetitiveTrack {
         let maxLabel = '';
         let pointsInfo = '';
         let showQuickAdd = false;
+        let incrementAmount = 1;
+        let decrementAmount = 1;
 
         if (task.type === 'water') {
             valueSuffix = 'mL';
             maxLabel = `max: ${task.maxValue}mL`;
             pointsInfo = '500mL = 1 point';
             showQuickAdd = true;
+            incrementAmount = 750; // 750mL per click
+            decrementAmount = 750; // 750mL per click
         } else if (task.type === 'workout') {
             valueSuffix = ' hours';
             maxLabel = `max: ${task.maxValue} hours`;
             pointsInfo = '30 minutes = 1 point';
             showQuickAdd = true;
+            incrementAmount = 0.5; // 30 minutes per click
+            decrementAmount = 0.5; // 30 minutes per click
         } else if (task.type === 'study') {
             valueSuffix = ' hours';
             maxLabel = `max: ${task.maxValue} hours`;
             pointsInfo = '1 hour = 1 point';
             showQuickAdd = true;
+            incrementAmount = 1;
+            decrementAmount = 1;
         } else if (task.config) {
             valueSuffix = ` ${task.config.unitLabel || 'units'}`;
             maxLabel = `max: ${task.maxValue} ${task.config.unitLabel || 'units'}`;
             pointsInfo = `${task.config.unitsPerClick || 1} ${task.config.unitLabel || 'unit'} = ${task.config.pointsPerUnit || 1} point${task.config.pointsPerUnit > 1 ? 's' : ''}`;
             showQuickAdd = true;
+            incrementAmount = task.config.unitsPerClick || 1;
+            decrementAmount = task.config.unitsPerClick || 1;
         }
 
         // Calculate display values
@@ -724,13 +760,13 @@ class CompetitiveTrack {
                 <div class="task-player">
                     <div class="task-player-label">Nish</div>
                     <div class="number-controls">
-                        <button class="number-btn ${!canEditNish || nishValue <= 0 ? 'disabled' : ''}" 
-                                onclick="${canEditNish && nishValue > 0 ? `tracker.updateNumberTask(${index}, 1, -1)` : ''}">
+                        <button class="number-btn ${!canEditNish || nishValue < decrementAmount ? 'disabled' : ''}" 
+                                onclick="${canEditNish && nishValue >= decrementAmount ? `tracker.updateNumberTask(${index}, 1, -${decrementAmount})` : ''}">
                             <i class="fas fa-minus"></i>
                         </button>
                         <div class="number-value">${nishDisplayValue}${valueSuffix}</div>
                         <button class="number-btn ${!canEditNish || nishValue >= task.maxValue ? 'disabled' : ''}" 
-                                onclick="${canEditNish && nishValue < task.maxValue ? `tracker.updateNumberTask(${index}, 1, 1)` : ''}">
+                                onclick="${canEditNish && nishValue < task.maxValue ? `tracker.updateNumberTask(${index}, 1, ${incrementAmount})` : ''}">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -744,13 +780,13 @@ class CompetitiveTrack {
                 <div class="task-player">
                     <div class="task-player-label">Jess</div>
                     <div class="number-controls">
-                        <button class="number-btn ${!canEditJess || jessValue <= 0 ? 'disabled' : ''}" 
-                                onclick="${canEditJess && jessValue > 0 ? `tracker.updateNumberTask(${index}, 2, -1)` : ''}">
+                        <button class="number-btn ${!canEditJess || jessValue < decrementAmount ? 'disabled' : ''}" 
+                                onclick="${canEditJess && jessValue >= decrementAmount ? `tracker.updateNumberTask(${index}, 2, -${decrementAmount})` : ''}">
                             <i class="fas fa-minus"></i>
                         </button>
                         <div class="number-value">${jessDisplayValue}${valueSuffix}</div>
                         <button class="number-btn ${!canEditJess || jessValue >= task.maxValue ? 'disabled' : ''}" 
-                                onclick="${canEditJess && jessValue < task.maxValue ? `tracker.updateNumberTask(${index}, 2, 1)` : ''}">
+                                onclick="${canEditJess && jessValue < task.maxValue ? `tracker.updateNumberTask(${index}, 2, ${incrementAmount})` : ''}">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
