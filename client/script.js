@@ -61,46 +61,6 @@ class CompetitiveTrack {
             }
         });
 
-        // Water modal
-        const waterModal = document.getElementById('waterModal');
-        document.querySelector('#waterModal .close').addEventListener('click', () => {
-            waterModal.style.display = 'none';
-        });
-
-        document.getElementById('saveWater').addEventListener('click', () => {
-            this.saveWaterIncrement();
-        });
-
-        document.getElementById('waterAmount').addEventListener('input', (e) => {
-            this.updateWaterPointsPreview();
-        });
-
-        document.getElementById('waterAmount').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.saveWaterIncrement();
-            }
-        });
-
-        // Workout modal
-        const workoutModal = document.getElementById('workoutModal');
-        document.querySelector('#workoutModal .close').addEventListener('click', () => {
-            workoutModal.style.display = 'none';
-        });
-
-        document.getElementById('saveWorkout').addEventListener('click', () => {
-            this.saveWorkoutIncrement();
-        });
-
-        document.getElementById('workoutMinutes').addEventListener('input', (e) => {
-            this.updateWorkoutPointsPreview();
-        });
-
-        document.getElementById('workoutMinutes').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.saveWorkoutIncrement();
-            }
-        });
-
         // Rename modal
         const renameModal = document.getElementById('renameModal');
         document.querySelector('#renameModal .close').addEventListener('click', () => {
@@ -120,8 +80,6 @@ class CompetitiveTrack {
         // Close modals when clicking outside
         window.addEventListener('click', (e) => {
             if (e.target === taskModal) taskModal.style.display = 'none';
-            if (e.target === waterModal) waterModal.style.display = 'none';
-            if (e.target === workoutModal) workoutModal.style.display = 'none';
             if (e.target === renameModal) renameModal.style.display = 'none';
         });
     }
@@ -265,127 +223,6 @@ class CompetitiveTrack {
         } catch (error) {
             console.error('Error adding task:', error);
             alert('Error adding task: ' + error.message);
-        }
-    }
-
-    // Water methods
-    showWaterIncrement(player) {
-        this.currentWaterPlayer = player;
-        const modal = document.getElementById('waterModal');
-        const playerName = player === 1 ? 'Nish' : 'Jess';
-        const currentWater = this.getCurrentWater(player);
-        document.getElementById('waterModalTitle').textContent = `Add Water - ${playerName}`;
-        document.getElementById('waterAmount').value = '';
-        document.getElementById('waterCurrentTotal').textContent = `Current: ${currentWater}mL`;
-        document.getElementById('waterPointsPreview').textContent = '0 points';
-        modal.style.display = 'block';
-        document.getElementById('waterAmount').focus();
-    }
-
-    updateWaterPointsPreview() {
-        const amount = parseInt(document.getElementById('waterAmount').value) || 0;
-        const points = Math.floor(amount / 500);
-        document.getElementById('waterPointsPreview').textContent = `+${points} point${points !== 1 ? 's' : ''}`;
-    }
-
-    getCurrentWater(player) {
-        const waterTask = this.scores.dailyTasks.find(task => task.type === 'water');
-        if (!waterTask) return 0;
-        return Math.round(player === 1 ? waterTask.player1Value : waterTask.player2Value);
-    }
-
-    async saveWaterIncrement() {
-        const amount = parseInt(document.getElementById('waterAmount').value);
-        
-        if (!amount || amount < 0) {
-            alert('Please enter a valid amount of water in mL');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.apiBase}/scores/task/water/increment`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    player: this.currentWaterPlayer, 
-                    amount: amount 
-                })
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to update water intake');
-            }
-            
-            this.scores = await response.json();
-            this.render();
-            document.getElementById('waterModal').style.display = 'none';
-        } catch (error) {
-            console.error('Error updating water:', error);
-            alert('Error updating water: ' + error.message);
-        }
-    }
-
-    // Workout methods
-    showWorkoutIncrement(player) {
-        this.currentWorkoutPlayer = player;
-        const modal = document.getElementById('workoutModal');
-        const playerName = player === 1 ? 'Nish' : 'Jess';
-        const currentWorkout = this.getCurrentWorkout(player);
-        document.getElementById('workoutModalTitle').textContent = `Add Workout - ${playerName}`;
-        document.getElementById('workoutMinutes').value = '';
-        document.getElementById('workoutCurrentTotal').textContent = `Current: ${currentWorkout}`;
-        document.getElementById('workoutPointsPreview').textContent = '0 points';
-        modal.style.display = 'block';
-        document.getElementById('workoutMinutes').focus();
-    }
-
-    updateWorkoutPointsPreview() {
-        const minutes = parseInt(document.getElementById('workoutMinutes').value) || 0;
-        const points = Math.floor(minutes / 30);
-        document.getElementById('workoutPointsPreview').textContent = `+${points} point${points !== 1 ? 's' : ''}`;
-    }
-
-    getCurrentWorkout(player) {
-        const workoutTask = this.scores.dailyTasks.find(task => task.type === 'workout');
-        if (!workoutTask) return '0 hours';
-        const value = player === 1 ? workoutTask.player1Value : workoutTask.player2Value;
-        return `${value.toFixed(1)} hours`;
-    }
-
-    async saveWorkoutIncrement() {
-        const minutes = parseInt(document.getElementById('workoutMinutes').value);
-        
-        if (!minutes || minutes < 0) {
-            alert('Please enter a valid number of minutes');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.apiBase}/scores/task/workout/increment`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    player: this.currentWorkoutPlayer, 
-                    minutes: minutes 
-                })
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to update workout time');
-            }
-            
-            this.scores = await response.json();
-            this.render();
-            document.getElementById('workoutModal').style.display = 'none';
-        } catch (error) {
-            console.error('Error updating workout:', error);
-            alert('Error updating workout: ' + error.message);
         }
     }
 
@@ -554,12 +391,9 @@ class CompetitiveTrack {
             
             if (task.type === 'checkbox') {
                 taskContent = this.renderCheckboxTask(task, index, canEditNish, canEditJess);
-            } else if (isWaterTask || isWorkoutTask) {
-                // Use modal-based input for water and workout
-                taskContent = this.renderModalBasedTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask);
             } else {
-                // Use +/- buttons for study and other number tasks
-                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess);
+                // Use +/- buttons for ALL number tasks (water, study, workout)
+                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask, isStudyTask);
             }
             
             // Edit button for custom tasks, delete button for all non-default tasks
@@ -639,74 +473,7 @@ class CompetitiveTrack {
         `;
     }
 
-    renderModalBasedTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask) {
-        const nishValue = task.player1Value;
-        const jessValue = task.player2Value;
-        const nishPercent = (nishValue / task.maxValue) * 100;
-        const jessPercent = (jessValue / task.maxValue) * 100;
-
-        let valueSuffix = '';
-        let nishDisplayValue = nishValue;
-        let jessDisplayValue = jessValue;
-        let modalFunction = '';
-        let pointsInfo = '';
-
-        if (isWaterTask) {
-            valueSuffix = 'mL';
-            nishDisplayValue = Math.round(nishValue);
-            jessDisplayValue = Math.round(jessValue);
-            modalFunction = 'showWaterIncrement';
-            pointsInfo = '+500mL = 1 point';
-        } else if (isWorkoutTask) {
-            valueSuffix = ' hours';
-            nishDisplayValue = nishValue.toFixed(1);
-            jessDisplayValue = jessValue.toFixed(1);
-            modalFunction = 'showWorkoutIncrement';
-            pointsInfo = '+30 minutes = 1 point';
-        }
-
-        return `
-            <div class="task-controls">
-                <div class="task-player">
-                    <div class="task-player-label">Nish</div>
-                    <div class="current-value" style="text-align: center; font-size: 1.2em; font-weight: bold; margin: 10px 0;">
-                        ${nishDisplayValue}${valueSuffix}
-                    </div>
-                    <div class="points-info" style="text-align: center; font-size: 0.8em; color: #666;">
-                        ${Math.floor(isWaterTask ? nishValue / 500 : (nishValue * 60) / 30)} points
-                    </div>
-                </div>
-                <div class="task-player">
-                    <div class="task-player-label">Jess</div>
-                    <div class="current-value" style="text-align: center; font-size: 1.2em; font-weight: bold; margin: 10px 0;">
-                        ${jessDisplayValue}${valueSuffix}
-                    </div>
-                    <div class="points-info" style="text-align: center; font-size: 0.8em; color: #666;">
-                        ${Math.floor(isWaterTask ? jessValue / 500 : (jessValue * 60) / 30)} points
-                    </div>
-                </div>
-            </div>
-            <div style="text-align: center; margin-top: 10px;">
-                <button onclick="tracker.${modalFunction}(1)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px;" ${!canEditNish ? 'disabled' : ''}>
-                    <i class="fas fa-plus"></i> Add ${isWaterTask ? 'Water' : 'Workout'}
-                </button>
-                <button onclick="tracker.${modalFunction}(2)" class="btn btn-primary" style="font-size: 0.8em; padding: 5px 10px; margin-left: 5px;" ${!canEditJess ? 'disabled' : ''}>
-                    <i class="fas fa-plus"></i> Add ${isWaterTask ? 'Water' : 'Workout'}
-                </button>
-            </div>
-            <div style="font-size: 0.8em; color: #666; text-align: center; margin-top: 5px;">
-                ${pointsInfo}
-            </div>
-            <div class="progress-container" style="margin-top: 15px;">
-                <div class="progress-bar">
-                    <div class="progress-fill nish" style="width: ${nishPercent}%"></div>
-                    <div class="progress-fill jess" style="width: ${jessPercent}%; margin-left: -${nishPercent}%"></div>
-                </div>
-            </div>
-        `;
-    }
-
-    renderNumberTask(task, index, canEditNish, canEditJess) {
+    renderNumberTask(task, index, canEditNish, canEditJess, isWaterTask, isWorkoutTask, isStudyTask) {
         const nishValue = task.player1Value;
         const jessValue = task.player2Value;
         const nishPercent = (nishValue / task.maxValue) * 100;
@@ -714,11 +481,32 @@ class CompetitiveTrack {
 
         let valueSuffix = '';
         let maxLabel = `max: ${task.maxValue}`;
+        let pointsInfo = '';
+        let incrementValue = 1;
 
-        if (task.type === 'study') {
+        if (isWaterTask) {
+            valueSuffix = 'mL';
+            maxLabel = `max: ${task.maxValue}mL`;
+            pointsInfo = '500mL = 1 point';
+            incrementValue = 500; // 500mL per click
+        } else if (isWorkoutTask) {
+            valueSuffix = ' hours';
+            pointsInfo = '30 minutes = 1 point';
+            incrementValue = 0.5; // 30 minutes per click
+        } else {
             valueSuffix = ' hours';
             maxLabel = `max: ${task.maxValue} hours`;
+            pointsInfo = '1 hour = 1 point';
+            incrementValue = 1; // 1 hour per click
         }
+
+        // Calculate display values
+        const nishDisplayValue = isWaterTask ? Math.round(nishValue) : isWorkoutTask ? nishValue.toFixed(1) : nishValue;
+        const jessDisplayValue = isWaterTask ? Math.round(jessValue) : isWorkoutTask ? jessValue.toFixed(1) : jessValue;
+
+        // Calculate points
+        const nishPoints = isWaterTask ? Math.floor(nishValue / 500) : isWorkoutTask ? Math.floor((nishValue * 60) / 30) : Math.floor(nishValue);
+        const jessPoints = isWaterTask ? Math.floor(jessValue / 500) : isWorkoutTask ? Math.floor((jessValue * 60) / 30) : Math.floor(jessValue);
 
         return `
             <div class="task-controls">
@@ -726,16 +514,19 @@ class CompetitiveTrack {
                     <div class="task-player-label">Nish</div>
                     <div class="number-controls">
                         <button class="number-btn ${!canEditNish || nishValue <= 0 ? 'disabled' : ''}" 
-                                onclick="${canEditNish && nishValue > 0 ? `tracker.updateNumberTask(${index}, 1, -1)` : ''}">
+                                onclick="${canEditNish && nishValue > 0 ? `tracker.updateNumberTask(${index}, 1, -${incrementValue})` : ''}">
                             <i class="fas fa-minus"></i>
                         </button>
-                        <div class="number-value">${nishValue}${valueSuffix}</div>
+                        <div class="number-value">${nishDisplayValue}${valueSuffix}</div>
                         <button class="number-btn ${!canEditNish || nishValue >= task.maxValue ? 'disabled' : ''}" 
-                                onclick="${canEditNish && nishValue < task.maxValue ? `tracker.updateNumberTask(${index}, 1, 1)` : ''}">
+                                onclick="${canEditNish && nishValue < task.maxValue ? `tracker.updateNumberTask(${index}, 1, ${incrementValue})` : ''}">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
                     <div class="number-max">${maxLabel}</div>
+                    <div class="points-info" style="text-align: center; font-size: 0.8em; color: #666; margin-top: 5px;">
+                        ${nishPoints} points
+                    </div>
                     <div class="progress-container">
                         <div class="progress-bar">
                             <div class="progress-fill nish" style="width: ${nishPercent}%"></div>
@@ -746,22 +537,28 @@ class CompetitiveTrack {
                     <div class="task-player-label">Jess</div>
                     <div class="number-controls">
                         <button class="number-btn ${!canEditJess || jessValue <= 0 ? 'disabled' : ''}" 
-                                onclick="${canEditJess && jessValue > 0 ? `tracker.updateNumberTask(${index}, 2, -1)` : ''}">
+                                onclick="${canEditJess && jessValue > 0 ? `tracker.updateNumberTask(${index}, 2, -${incrementValue})` : ''}">
                             <i class="fas fa-minus"></i>
                         </button>
-                        <div class="number-value">${jessValue}${valueSuffix}</div>
+                        <div class="number-value">${jessDisplayValue}${valueSuffix}</div>
                         <button class="number-btn ${!canEditJess || jessValue >= task.maxValue ? 'disabled' : ''}" 
-                                onclick="${canEditJess && jessValue < task.maxValue ? `tracker.updateNumberTask(${index}, 2, 1)` : ''}">
+                                onclick="${canEditJess && jessValue < task.maxValue ? `tracker.updateNumberTask(${index}, 2, ${incrementValue})` : ''}">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
                     <div class="number-max">${maxLabel}</div>
+                    <div class="points-info" style="text-align: center; font-size: 0.8em; color: #666; margin-top: 5px;">
+                        ${jessPoints} points
+                    </div>
                     <div class="progress-container">
                         <div class="progress-bar">
                             <div class="progress-fill jess" style="width: ${jessPercent}%"></div>
                         </div>
                     </div>
                 </div>
+            </div>
+            <div style="font-size: 0.8em; color: #666; text-align: center; margin-top: 10px;">
+                ${pointsInfo}
             </div>
         `;
     }
