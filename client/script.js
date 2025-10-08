@@ -354,7 +354,7 @@ class CompetitiveTrack {
             }
             
             document.getElementById('quickAddModal').style.display = 'none';
-            await this.loadScores(); // Reload scores to get updated data
+            await this.loadScores();
             this.render();
         } catch (error) {
             console.error('Error in quick add:', error);
@@ -393,7 +393,7 @@ class CompetitiveTrack {
             }
 
             document.getElementById('quickAddModal').style.display = 'none';
-            await this.loadScores(); // Reload scores to get updated data
+            await this.loadScores();
             this.render();
         } catch (error) {
             console.error('Error in quick add:', error);
@@ -401,7 +401,6 @@ class CompetitiveTrack {
         }
     }
 
-    // Task management methods
     showRenameModal(taskIndex) {
         this.currentRenameTaskIndex = taskIndex;
         const task = this.scores.dailyTasks[taskIndex];
@@ -539,7 +538,6 @@ class CompetitiveTrack {
     async deleteTask(taskIndex) {
         const task = this.scores.dailyTasks[taskIndex];
         
-        // Check if this is a default task
         const defaultTasks = ['Water Drank', 'Studied', 'Workout Done'];
         if (defaultTasks.some(defaultTask => task.name.includes(defaultTask))) {
             alert('Default tasks cannot be deleted.');
@@ -578,7 +576,7 @@ class CompetitiveTrack {
             const dayElement = document.createElement('div');
             dayElement.className = 'calendar-day empty';
             
-            if (this.scores.dailyHistory[i]) {
+            if (this.scores.dailyHistory && this.scores.dailyHistory[i]) {
                 const dayData = this.scores.dailyHistory[i];
                 const date = new Date(dayData.date);
                 const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
@@ -598,9 +596,18 @@ class CompetitiveTrack {
         }
     }
 
-       renderTasks() {
+    renderTasks() {
         const container = document.getElementById('tasksContainer');
         container.innerHTML = '';
+
+        if (!this.scores.dailyTasks || this.scores.dailyTasks.length === 0) {
+            container.innerHTML = `
+                <div class="task" style="text-align: center; padding: 40px;">
+                    <p>No tasks available. Add some tasks to get started!</p>
+                </div>
+            `;
+            return;
+        }
 
         // Filter out duplicate tasks by name
         const uniqueTasks = [];
@@ -610,12 +617,10 @@ class CompetitiveTrack {
             if (!seenTasks.has(task.name)) {
                 seenTasks.add(task.name);
                 uniqueTasks.push({ task, index });
-            } else {
-                console.log(`⚠️ Skipping duplicate task: ${task.name}`);
             }
         });
 
-        uniqueTasks.forEach(({ task, originalIndex }) => {
+        uniqueTasks.forEach(({ task, index }) => {
             const taskEl = document.createElement('div');
             taskEl.className = 'task';
             
@@ -626,20 +631,19 @@ class CompetitiveTrack {
             let taskContent = '';
             
             if (task.type === 'checkbox') {
-                taskContent = this.renderCheckboxTask(task, originalIndex, canEditNish, canEditJess);
+                taskContent = this.renderCheckboxTask(task, index, canEditNish, canEditJess);
             } else {
-                taskContent = this.renderNumberTask(task, originalIndex, canEditNish, canEditJess);
+                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess);
             }
             
-            // Edit button for custom tasks, delete button for all non-default tasks
             const editButton = isDefault ? '' : `
-                <button onclick="tracker.showRenameModal(${originalIndex})" class="btn btn-outline btn-sm">
+                <button onclick="tracker.showRenameModal(${index})" class="btn btn-outline btn-sm">
                     <i class="fas fa-edit"></i> Rename
                 </button>
             `;
             
             const deleteButton = isDefault ? '' : `
-                <button onclick="tracker.deleteTask(${originalIndex})" class="btn btn-outline btn-sm">
+                <button onclick="tracker.deleteTask(${index})" class="btn btn-outline btn-sm">
                     <i class="fas fa-trash"></i> Delete
                 </button>
             `;
@@ -662,7 +666,6 @@ class CompetitiveTrack {
             container.appendChild(taskEl);
         });
 
-        // Add task button at the bottom
         const addTaskEl = document.createElement('div');
         addTaskEl.className = 'task';
         addTaskEl.style.textAlign = 'center';
@@ -709,8 +712,8 @@ class CompetitiveTrack {
     }
 
     renderNumberTask(task, index, canEditNish, canEditJess) {
-        const nishValue = task.player1Value;
-        const jessValue = task.player2Value;
+        const nishValue = task.player1Value || 0;
+        const jessValue = task.player2Value || 0;
         const nishPercent = (nishValue / task.maxValue) * 100;
         const jessPercent = (jessValue / task.maxValue) * 100;
 
@@ -724,17 +727,17 @@ class CompetitiveTrack {
         if (task.type === 'water') {
             valueSuffix = 'mL';
             maxLabel = `max: ${task.maxValue}mL`;
-            pointsInfo = '500mL = 1 point';
+            pointsInfo = '750mL = 1 point';
             showQuickAdd = true;
-            incrementAmount = 750; // 750mL per click
-            decrementAmount = 750; // 750mL per click
+            incrementAmount = 750;
+            decrementAmount = 750;
         } else if (task.type === 'workout') {
             valueSuffix = ' hours';
             maxLabel = `max: ${task.maxValue} hours`;
             pointsInfo = '30 minutes = 1 point';
             showQuickAdd = true;
-            incrementAmount = 0.5; // 30 minutes per click
-            decrementAmount = 0.5; // 30 minutes per click
+            incrementAmount = 0.5;
+            decrementAmount = 0.5;
         } else if (task.type === 'study') {
             valueSuffix = ' hours';
             maxLabel = `max: ${task.maxValue} hours`;
@@ -751,7 +754,6 @@ class CompetitiveTrack {
             decrementAmount = task.config.unitsPerClick || 1;
         }
 
-        // Calculate display values
         const nishDisplayValue = task.type === 'water' ? Math.round(nishValue) : 
                                task.type === 'workout' ? nishValue.toFixed(1) : nishValue;
         const jessDisplayValue = task.type === 'water' ? Math.round(jessValue) : 
@@ -819,7 +821,6 @@ class CompetitiveTrack {
     }
 }
 
-// Initialize the tracker when the page loads
 let tracker;
 document.addEventListener('DOMContentLoaded', () => {
     tracker = new CompetitiveTrack();
