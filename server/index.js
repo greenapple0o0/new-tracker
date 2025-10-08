@@ -65,7 +65,7 @@ const Score = mongoose.model('Score', scoreSchema);
 const DEFAULT_TASKS = [
   { name: 'Water Drank (mL)', type: 'water', maxValue: 3000, player1Value: 0, player2Value: 0 },
   { name: 'Studied (hours)', type: 'study', maxValue: 8, player1Value: 0, player2Value: 0 },
-  { name: 'Workout Done (hours)', type: 'workout', maxValue: 2, player1Value: 0, player2Value: 0 }
+  { name: 'Workout Done (minutes)', type: 'workout', maxValue: 120, player1Value: 0, player2Value: 0 }
 ];
 
 // Function to ensure default tasks exist
@@ -100,6 +100,12 @@ const ensureDefaultTasks = async (scores) => {
       existingTask.name = 'Water Drank (mL)';
       needsUpdate = true;
       console.log(`✅ Updated water task to 3000mL`);
+    } else if (defaultTask.name === 'Workout Done (minutes)' && existingTask.maxValue !== 120) {
+      // Update workout task to 120 minutes if it exists with wrong maxValue
+      existingTask.maxValue = 120;
+      existingTask.name = 'Workout Done (minutes)';
+      needsUpdate = true;
+      console.log(`✅ Updated workout task to 120 minutes`);
     }
   });
 
@@ -278,7 +284,7 @@ app.post('/api/scores/task/:taskIndex/toggle', async (req, res) => {
   }
 });
 
-// Increment/decrement number tasks (for study and generic number tasks)
+// Increment/decrement number tasks (for study)
 app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
   try {
     const { taskIndex } = req.params;
@@ -317,7 +323,7 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
       const potentialNewValue = task[playerKey] + 1;
       if (potentialNewValue <= task.maxValue) {
         newValue = potentialNewValue;
-        pointChange = 1;
+        pointChange = 1; // 1 hour = 1 point for study
       }
     } else if (change < 0) {
       // Decrement
@@ -349,7 +355,7 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
   }
 });
 
-// Incremental water update endpoint - SIMPLIFIED VERSION
+// Incremental water update endpoint
 app.post('/api/scores/task/water/increment', async (req, res) => {
   try {
     const { player, amount } = req.body;
@@ -366,7 +372,7 @@ app.post('/api/scores/task/water/increment', async (req, res) => {
     scores = await ensureDefaultTasks(scores);
     scores = await checkAndResetScores(scores);
     
-    // Find water task by type only
+    // Find water task by type
     const waterTask = scores.dailyTasks.find(task => task.type === 'water');
     if (!waterTask) {
       console.log('Available tasks:', scores.dailyTasks.map(t => ({ name: t.name, type: t.type })));
@@ -379,9 +385,9 @@ app.post('/api/scores/task/water/increment', async (req, res) => {
     const oldValue = waterTask[playerKey];
     const newValue = Math.max(0, Math.min(oldValue + amount, waterTask.maxValue));
     
-    // Calculate points: 500mL = 1 point
-    const oldPoints = Math.floor(oldValue / 500);
-    const newPoints = Math.floor(newValue / 500);
+    // Calculate points: 750mL = 1 point
+    const oldPoints = Math.floor(oldValue / 750);
+    const newPoints = Math.floor(newValue / 750);
     const pointChange = newPoints - oldPoints;
     
     waterTask[playerKey] = newValue;
@@ -403,7 +409,7 @@ app.post('/api/scores/task/water/increment', async (req, res) => {
   }
 });
 
-// Incremental workout update endpoint - SIMPLIFIED VERSION
+// Incremental workout update endpoint
 app.post('/api/scores/task/workout/increment', async (req, res) => {
   try {
     const { player, minutes } = req.body;
@@ -420,7 +426,7 @@ app.post('/api/scores/task/workout/increment', async (req, res) => {
     scores = await ensureDefaultTasks(scores);
     scores = await checkAndResetScores(scores);
     
-    // Find workout task by type only
+    // Find workout task by type
     const workoutTask = scores.dailyTasks.find(task => task.type === 'workout');
     if (!workoutTask) {
       console.log('Available tasks:', scores.dailyTasks.map(t => ({ name: t.name, type: t.type })));
@@ -430,14 +436,12 @@ app.post('/api/scores/task/workout/increment', async (req, res) => {
     const playerKey = player === 1 ? 'player1Value' : 'player2Value';
     const scoreKey = player === 1 ? 'player1Score' : 'player2Score';
     
-    // Convert current value to minutes, add new minutes, then convert back to hours
-    const currentMinutes = workoutTask[playerKey] * 60;
-    const newTotalMinutes = Math.max(0, Math.min(currentMinutes + minutes, workoutTask.maxValue * 60));
-    const newValue = newTotalMinutes / 60;
+    const oldValue = workoutTask[playerKey];
+    const newValue = Math.max(0, Math.min(oldValue + minutes, workoutTask.maxValue));
     
     // Calculate points: 30 minutes = 1 point
-    const oldPoints = Math.floor(currentMinutes / 30);
-    const newPoints = Math.floor(newTotalMinutes / 30);
+    const oldPoints = Math.floor(oldValue / 30);
+    const newPoints = Math.floor(newValue / 30);
     const pointChange = newPoints - oldPoints;
     
     workoutTask[playerKey] = newValue;
@@ -620,5 +624,8 @@ app.listen(PORT, () => {
   console.log(`👥 Players: Nish vs Jess`);
   console.log(`🔄 Auto-reset: Every 24 hours`);
   console.log(`📊 Default tasks: Water (3000mL), Study, Workout`);
+  console.log(`💧 Water: 750mL = 1 point`);
+  console.log(`🏋️ Workout: 30 minutes = 1 point`);
+  console.log(`📚 Study: 1 hour = 1 point`);
   console.log(`📅 7-day history calendar`);
 });

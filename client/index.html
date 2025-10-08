@@ -121,9 +121,9 @@
             <input type="text" id="newTaskName" placeholder="Enter task description">
             <select id="newTaskType" class="task-type-select">
                 <option value="checkbox">Checkbox (1 point)</option>
-                <option value="water">Water (cups)</option>
+                <option value="water">Water (mL)</option>
                 <option value="study">Study (hours)</option>
-                <option value="workout">Workout (hours)</option>
+                <option value="workout">Workout (minutes)</option>
             </select>
             <div id="maxValueContainer" style="display: none;">
                 <label>Max Value:</label>
@@ -137,7 +137,7 @@
     <div id="waterModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h3 id="waterModalTitle"></h3>
+            <h3 id="waterModalTitle">Add Water</h3>
             <p>How much more water did you drink?</p>
             <div id="waterCurrentTotal" style="margin-bottom: 10px; font-weight: bold;"></div>
             <input type="number" id="waterAmount" placeholder="Enter amount in mL to add" min="0" max="3000">
