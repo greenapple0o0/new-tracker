@@ -88,55 +88,82 @@ const DEFAULT_TASKS = [
 ];
 
 // Function to ensure default tasks exist (FIXED DUPLICATE ISSUE)
+// Function to ensure default tasks exist (ENHANCED DUPLICATE PREVENTION)
 const ensureDefaultTasks = async (scores) => {
-  let needsUpdate = false;
-  
-  // First, remove any duplicate default tasks
-  const defaultTaskNames = DEFAULT_TASKS.map(task => task.name);
-  const uniqueTasks = [];
-  const seenTasks = new Set();
-  
-  scores.dailyTasks.forEach(task => {
-    if (!seenTasks.has(task.name)) {
-      seenTasks.add(task.name);
-      uniqueTasks.push(task);
-    } else if (defaultTaskNames.includes(task.name)) {
-      // This is a duplicate default task, skip it
-      needsUpdate = true;
-      console.log(`🔄 Removing duplicate task: ${task.name}`);
-    } else {
-      uniqueTasks.push(task);
+    let needsUpdate = false;
+    
+    console.log('🔍 Checking for duplicate tasks...');
+    
+    // Create a map to track tasks by name for easy lookup and removal
+    const taskMap = new Map();
+    const tasksToKeep = [];
+    
+    // Process tasks in reverse to keep the first occurrence
+    for (let i = scores.dailyTasks.length - 1; i >= 0; i--) {
+        const task = scores.dailyTasks[i];
+        if (taskMap.has(task.name)) {
+            console.log(`🗑️ Removing duplicate task: "${task.name}"`);
+            needsUpdate = true;
+            // Remove this duplicate task
+            scores.dailyTasks.splice(i, 1);
+        } else {
+            taskMap.set(task.name, task);
+            tasksToKeep.unshift(task); // Keep in original order
+        }
     }
-  });
-  
-  // Replace the tasks array with unique tasks
-  if (needsUpdate) {
-    scores.dailyTasks = uniqueTasks;
-  }
-  
-  // Now ensure all default tasks exist
-  DEFAULT_TASKS.forEach(defaultTask => {
-    const existingTask = scores.dailyTasks.find(task => task.name === defaultTask.name);
-    if (!existingTask) {
-      scores.dailyTasks.push(defaultTask);
-      needsUpdate = true;
-      console.log(`✅ Added missing default task: ${defaultTask.name}`);
-    } else {
-      // Ensure default tasks have correct configuration
-      if (existingTask.type !== defaultTask.type || existingTask.maxValue !== defaultTask.maxValue) {
-        existingTask.type = defaultTask.type;
-        existingTask.maxValue = defaultTask.maxValue;
-        needsUpdate = true;
-        console.log(`🔄 Updated default task configuration: ${defaultTask.name}`);
-      }
+    
+    // Replace with unique tasks only
+    if (needsUpdate) {
+        scores.dailyTasks = tasksToKeep;
+        console.log(`✅ Removed duplicates. Now have ${scores.dailyTasks.length} unique tasks`);
     }
-  });
+    
+    // Now ensure all default tasks exist exactly once
+    DEFAULT_TASKS.forEach(defaultTask => {
+        const existingTaskIndex = scores.dailyTasks.findIndex(task => task.name === defaultTask.name);
+        
+        if (existingTaskIndex === -1) {
+            // Default task is missing, add it
+            scores.dailyTasks.push({ ...defaultTask });
+            needsUpdate = true;
+            console.log(`✅ Added missing default task: "${defaultTask.name}"`);
+        } else {
+            // Default task exists, ensure it has correct configuration
+            const existingTask = scores.dailyTasks[existingTaskIndex];
+            let taskUpdated = false;
+            
+            if (existingTask.type !== defaultTask.type) {
+                existingTask.type = defaultTask.type;
+                taskUpdated = true;
+            }
+            if (existingTask.maxValue !== defaultTask.maxValue) {
+                existingTask.maxValue = defaultTask.maxValue;
+                taskUpdated = true;
+            }
+            if (existingTask.player1Value === undefined) {
+                existingTask.player1Value = 0;
+                taskUpdated = true;
+            }
+            if (existingTask.player2Value === undefined) {
+                existingTask.player2Value = 0;
+                taskUpdated = true;
+            }
+            
+            if (taskUpdated) {
+                needsUpdate = true;
+                console.log(`🔄 Updated default task configuration: "${defaultTask.name}"`);
+            }
+        }
+    });
 
-  if (needsUpdate) {
-    await scores.save();
-  }
-  
-  return scores;
+    if (needsUpdate) {
+        await scores.save();
+        console.log('💾 Saved changes to database');
+    } else {
+        console.log('✅ No duplicate tasks found');
+    }
+    
+    return scores;
 };
 
 // Function to save daily results to history

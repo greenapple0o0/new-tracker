@@ -598,11 +598,24 @@ class CompetitiveTrack {
         }
     }
 
-    renderTasks() {
+       renderTasks() {
         const container = document.getElementById('tasksContainer');
         container.innerHTML = '';
 
+        // Filter out duplicate tasks by name
+        const uniqueTasks = [];
+        const seenTasks = new Set();
+        
         this.scores.dailyTasks.forEach((task, index) => {
+            if (!seenTasks.has(task.name)) {
+                seenTasks.add(task.name);
+                uniqueTasks.push({ task, index });
+            } else {
+                console.log(`⚠️ Skipping duplicate task: ${task.name}`);
+            }
+        });
+
+        uniqueTasks.forEach(({ task, originalIndex }) => {
             const taskEl = document.createElement('div');
             taskEl.className = 'task';
             
@@ -613,20 +626,20 @@ class CompetitiveTrack {
             let taskContent = '';
             
             if (task.type === 'checkbox') {
-                taskContent = this.renderCheckboxTask(task, index, canEditNish, canEditJess);
+                taskContent = this.renderCheckboxTask(task, originalIndex, canEditNish, canEditJess);
             } else {
-                taskContent = this.renderNumberTask(task, index, canEditNish, canEditJess);
+                taskContent = this.renderNumberTask(task, originalIndex, canEditNish, canEditJess);
             }
             
             // Edit button for custom tasks, delete button for all non-default tasks
             const editButton = isDefault ? '' : `
-                <button onclick="tracker.showRenameModal(${index})" class="btn btn-outline btn-sm">
+                <button onclick="tracker.showRenameModal(${originalIndex})" class="btn btn-outline btn-sm">
                     <i class="fas fa-edit"></i> Rename
                 </button>
             `;
             
             const deleteButton = isDefault ? '' : `
-                <button onclick="tracker.deleteTask(${index})" class="btn btn-outline btn-sm">
+                <button onclick="tracker.deleteTask(${originalIndex})" class="btn btn-outline btn-sm">
                     <i class="fas fa-trash"></i> Delete
                 </button>
             `;
