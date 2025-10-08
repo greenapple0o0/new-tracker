@@ -198,6 +198,33 @@ const initializeScores = async () => {
   }
 };
 
+// Helper function to calculate points for different task types
+const calculatePoints = (taskType, value, config = null) => {
+  switch (taskType) {
+    case 'water':
+      // 500mL = 1 point, so 750mL = 1.5 points, but we want 750mL = 1 point
+      return Math.floor(value / 750); // 750mL per point
+    
+    case 'workout':
+      // 30 minutes = 1 point, so 0.5 hours = 1 point
+      return Math.floor(value * 2); // Multiply by 2 because 0.5 hours = 1 point
+    
+    case 'study':
+      // 1 hour = 1 point
+      return Math.floor(value);
+    
+    case 'number':
+      if (config) {
+        return Math.floor(value * config.pointsPerUnit);
+      }
+      return Math.floor(value);
+    
+    case 'checkbox':
+    default:
+      return Math.floor(value);
+  }
+};
+
 // API Routes
 
 // Get current scores, tasks, and history
@@ -318,8 +345,9 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
       
       if (potentialNewValue <= task.maxValue) {
         newValue = potentialNewValue;
-        pointChange = task.type === 'number' && task.config ? 
-          change * (task.config.pointsPerUnit || 1) : change;
+        const oldPoints = calculatePoints(task.type, task[playerKey], task.config);
+        const newPoints = calculatePoints(task.type, newValue, task.config);
+        pointChange = newPoints - oldPoints;
       }
     } else if (change < 0) {
       // Decrement
@@ -329,8 +357,9 @@ app.post('/api/scores/task/:taskIndex/increment', async (req, res) => {
       
       if (potentialNewValue >= 0) {
         newValue = potentialNewValue;
-        pointChange = task.type === 'number' && task.config ? 
-          change * (task.config.pointsPerUnit || 1) : change;
+        const oldPoints = calculatePoints(task.type, task[playerKey], task.config);
+        const newPoints = calculatePoints(task.type, newValue, task.config);
+        pointChange = newPoints - oldPoints;
       }
     }
     
@@ -384,9 +413,9 @@ app.post('/api/scores/task/water/increment', async (req, res) => {
     const oldValue = waterTask[playerKey];
     const newValue = Math.max(0, Math.min(oldValue + amount, waterTask.maxValue));
     
-    // Calculate points: 500mL = 1 point
-    const oldPoints = Math.floor(oldValue / 500);
-    const newPoints = Math.floor(newValue / 500);
+    // Calculate points: 750mL = 1 point
+    const oldPoints = calculatePoints('water', oldValue);
+    const newPoints = calculatePoints('water', newValue);
     const pointChange = newPoints - oldPoints;
     
     waterTask[playerKey] = newValue;
@@ -437,9 +466,9 @@ app.post('/api/scores/task/workout/increment', async (req, res) => {
     const oldValue = workoutTask[playerKey];
     const newValue = Math.max(0, Math.min(oldValue + hours, workoutTask.maxValue));
     
-    // Calculate points: 30 minutes = 1 point
-    const oldPoints = Math.floor(oldValue * 2); // 0.5 hours = 1 point
-    const newPoints = Math.floor(newValue * 2);
+    // Calculate points: 30 minutes = 1 point (0.5 hours = 1 point)
+    const oldPoints = calculatePoints('workout', oldValue);
+    const newPoints = calculatePoints('workout', newValue);
     const pointChange = newPoints - oldPoints;
     
     workoutTask[playerKey] = newValue;
@@ -597,28 +626,11 @@ app.delete('/api/scores/task/:taskIndex', async (req, res) => {
     }
     
     // Remove points associated with this task
-    if (task.type === 'checkbox') {
-      scores.player1Score = Math.max(0, scores.player1Score - task.player1Value);
-      scores.player2Score = Math.max(0, scores.player2Score - task.player2Value);
-    } else if (task.type === 'water') {
-      const nishPoints = Math.floor(task.player1Value / 500);
-      const jessPoints = Math.floor(task.player2Value / 500);
-      scores.player1Score = Math.max(0, scores.player1Score - nishPoints);
-      scores.player2Score = Math.max(0, scores.player2Score - jessPoints);
-    } else if (task.type === 'workout') {
-      const nishPoints = Math.floor(task.player1Value * 2);
-      const jessPoints = Math.floor(task.player2Value * 2);
-      scores.player1Score = Math.max(0, scores.player1Score - nishPoints);
-      scores.player2Score = Math.max(0, scores.player2Score - jessPoints);
-    } else if (task.type === 'study') {
-      scores.player1Score = Math.max(0, scores.player1Score - task.player1Value);
-      scores.player2Score = Math.max(0, scores.player2Score - task.player2Value);
-    } else if (task.type === 'number' && task.config) {
-      const nishPoints = Math.floor(task.player1Value * task.config.pointsPerUnit);
-      const jessPoints = Math.floor(task.player2Value * task.config.pointsPerUnit);
-      scores.player1Score = Math.max(0, scores.player1Score - nishPoints);
-      scores.player2Score = Math.max(0, scores.player2Score - jessPoints);
-    }
+    const nishPoints = calculatePoints(task.type, task.player1Value, task.config);
+    const jessPoints = calculatePoints(task.type, task.player2Value, task.config);
+    
+    scores.player1Score = Math.max(0, scores.player1Score - nishPoints);
+    scores.player2Score = Math.max(0, scores.player2Score - jessPoints);
     
     scores.dailyTasks.splice(index, 1);
     
@@ -654,5 +666,6 @@ app.listen(PORT, () => {
   console.log(`👥 Players: Nish vs Jess`);
   console.log(`🔄 Auto-reset: Every 24 hours`);
   console.log(`📊 Default tasks: Water, Study, Workout`);
+  console.log(`🎯 Scoring: 750mL water = 1 point, 30min workout = 1 point`);
   console.log(`📅 7-day history calendar`);
 });
