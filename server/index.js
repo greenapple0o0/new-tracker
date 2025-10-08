@@ -87,16 +87,48 @@ const DEFAULT_TASKS = [
   }
 ];
 
-// Function to ensure default tasks exist
+// Function to ensure default tasks exist (FIXED DUPLICATE ISSUE)
 const ensureDefaultTasks = async (scores) => {
   let needsUpdate = false;
   
+  // First, remove any duplicate default tasks
+  const defaultTaskNames = DEFAULT_TASKS.map(task => task.name);
+  const uniqueTasks = [];
+  const seenTasks = new Set();
+  
+  scores.dailyTasks.forEach(task => {
+    if (!seenTasks.has(task.name)) {
+      seenTasks.add(task.name);
+      uniqueTasks.push(task);
+    } else if (defaultTaskNames.includes(task.name)) {
+      // This is a duplicate default task, skip it
+      needsUpdate = true;
+      console.log(`🔄 Removing duplicate task: ${task.name}`);
+    } else {
+      uniqueTasks.push(task);
+    }
+  });
+  
+  // Replace the tasks array with unique tasks
+  if (needsUpdate) {
+    scores.dailyTasks = uniqueTasks;
+  }
+  
+  // Now ensure all default tasks exist
   DEFAULT_TASKS.forEach(defaultTask => {
     const existingTask = scores.dailyTasks.find(task => task.name === defaultTask.name);
     if (!existingTask) {
       scores.dailyTasks.push(defaultTask);
       needsUpdate = true;
-      console.log(`✅ Added default task: ${defaultTask.name}`);
+      console.log(`✅ Added missing default task: ${defaultTask.name}`);
+    } else {
+      // Ensure default tasks have correct configuration
+      if (existingTask.type !== defaultTask.type || existingTask.maxValue !== defaultTask.maxValue) {
+        existingTask.type = defaultTask.type;
+        existingTask.maxValue = defaultTask.maxValue;
+        needsUpdate = true;
+        console.log(`🔄 Updated default task configuration: ${defaultTask.name}`);
+      }
     }
   });
 
@@ -202,12 +234,12 @@ const initializeScores = async () => {
 const calculatePoints = (taskType, value, config = null) => {
   switch (taskType) {
     case 'water':
-      // 500mL = 1 point, so 750mL = 1.5 points, but we want 750mL = 1 point
-      return Math.floor(value / 750); // 750mL per point
+      // 750mL = 1 point
+      return Math.floor(value / 750);
     
     case 'workout':
-      // 30 minutes = 1 point, so 0.5 hours = 1 point
-      return Math.floor(value * 2); // Multiply by 2 because 0.5 hours = 1 point
+      // 30 minutes = 1 point (0.5 hours = 1 point)
+      return Math.floor(value * 2);
     
     case 'study':
       // 1 hour = 1 point
